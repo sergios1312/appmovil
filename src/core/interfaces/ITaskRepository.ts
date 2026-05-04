@@ -6,7 +6,7 @@
  * Principio de Inversión de Dependencias (DIP).
  */
 
-import { Task, CreateTaskDTO, UpdateTaskDTO } from '@/src/core/entities/Task';
+import { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
 
 export interface ITaskRepository {
   /**

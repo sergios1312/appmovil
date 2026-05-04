@@ -5,7 +5,7 @@
  */
 
 import { create } from 'zustand';
-import { User, AuthStatus } from '@/src/core/entities/User';
+import { User, AuthStatus } from '@/core/entities/User';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AUTH_STORAGE_KEY = '@appmovil:auth_user';

@@ -6,9 +6,9 @@
 
 import React from 'react';
 import { FlatList, View, Text, StyleSheet, RefreshControl } from 'react-native';
-import { TaskCard } from '@/src/presentation/components/task/TaskCard';
-import { TaskWithChildrenMeta } from '@/src/core/entities/Task';
-import { COLORS, TYPOGRAPHY, SPACING } from '@/src/utils/constants';
+import { TaskCard } from '@/presentation/components/task/TaskCard';
+import { TaskWithChildrenMeta } from '@/core/entities/Task';
+import { COLORS, TYPOGRAPHY, SPACING } from '@/utils/constants';
 
 interface TaskListProps {
   tasks: TaskWithChildrenMeta[];

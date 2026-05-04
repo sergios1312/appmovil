@@ -7,8 +7,8 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/src/presentation/hooks/useAuth';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/src/utils/constants';
+import { useAuth } from '@/presentation/hooks/useAuth';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
 
 interface SettingItem {
   icon: React.ComponentProps<typeof Ionicons>['name'];

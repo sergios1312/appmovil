@@ -5,7 +5,7 @@
  * Simulan la estructura que devolverían Google Tasks y Calendar.
  */
 
-import { Task } from '@/src/core/entities/Task';
+import { Task } from '@/core/entities/Task';
 
 const now = new Date().toISOString();
 const today = new Date();

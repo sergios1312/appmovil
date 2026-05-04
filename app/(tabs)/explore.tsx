@@ -1,13 +1,13 @@
 import { Image } from 'expo-image';
 import { Platform, StyleSheet } from 'react-native';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { Collapsible } from '@/presentation/components/ui/collapsible';
+import { ExternalLink } from '@/presentation/components/external-link';
+import ParallaxScrollView from '@/presentation/components/parallax-scroll-view';
+import { ThemedText } from '@/presentation/components/themed-text';
+import { ThemedView } from '@/presentation/components/themed-view';
+import { IconSymbol } from '@/presentation/components/ui/icon-symbol';
+import { Fonts } from '@/presentation/constants/theme';
 
 export default function TabTwoScreen() {
   return (
@@ -27,72 +27,61 @@ export default function TabTwoScreen() {
           style={{
             fontFamily: Fonts.rounded,
           }}>
-          Explore
+          Explorar
         </ThemedText>
       </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
+      <ThemedText>Esta aplicación incluye código de ejemplo para ayudarte a comenzar.</ThemedText>
+      <Collapsible title="Enrutamiento basado en archivos">
         <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
+          Esta aplicación tiene varias pantallas:{' '}
+          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> y{' '}
           <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
         </ThemedText>
         <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
+          El archivo de diseño en <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
+          configura el navegador de pestañas.
         </ThemedText>
         <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
+          <ThemedText type="link">Más información</ThemedText>
         </ExternalLink>
       </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
+      <Collapsible title="Soporte para Android, iOS y Web">
         <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
+          Puedes abrir este proyecto en Android, iOS y la web. Para abrir la versión web, presiona{' '}
+          <ThemedText type="defaultSemiBold">w</ThemedText> en la terminal que ejecuta este proyecto.
         </ThemedText>
       </Collapsible>
-      <Collapsible title="Images">
+      <Collapsible title="Imágenes">
         <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
+          Para imágenes estáticas, puedes usar los sufijos <ThemedText type="defaultSemiBold">@2x</ThemedText> y{' '}
+          <ThemedText type="defaultSemiBold">@3x</ThemedText> para proporcionar archivos para diferentes densidades de pantalla.
         </ThemedText>
         <Image
           source={require('@/assets/images/react-logo.png')}
           style={{ width: 100, height: 100, alignSelf: 'center' }}
         />
         <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
+          <ThemedText type="link">Más información</ThemedText>
         </ExternalLink>
       </Collapsible>
-      <Collapsible title="Light and dark mode components">
+      <Collapsible title="Componentes para modo claro y oscuro">
         <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
+          Esta plantilla tiene soporte para modo claro y oscuro. El hook{' '}
+          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> te permite inspeccionar
+          cuál es el esquema de color actual del usuario para ajustar los colores de la UI.
         </ThemedText>
         <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
+          <ThemedText type="link">Más información</ThemedText>
         </ExternalLink>
       </Collapsible>
-      <Collapsible title="Animations">
+      <Collapsible title="Arquitectura Limpia">
         <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
+          El proyecto ha sido organizado siguiendo principios de Arquitectura Limpia:
         </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
+        <ThemedText type="defaultSemiBold">- src/core:</ThemedText><ThemedText> Entidades e interfaces de dominio.</ThemedText>
+        <ThemedText type="defaultSemiBold">- src/data:</ThemedText><ThemedText> Repositorios y fuentes de datos (SQLite).</ThemedText>
+        <ThemedText type="defaultSemiBold">- src/infrastructure:</ThemedText><ThemedText> Servicios externos y base de datos.</ThemedText>
+        <ThemedText type="defaultSemiBold">- src/presentation:</ThemedText><ThemedText> Componentes de UI, hooks y stores (Zustand).</ThemedText>
       </Collapsible>
     </ParallaxScrollView>
   );

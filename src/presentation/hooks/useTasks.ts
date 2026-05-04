@@ -6,8 +6,8 @@
  */
 
 import { useEffect } from 'react';
-import { useTaskStore, selectFilteredTasks, selectTodayStats, TaskFilter } from '@/src/infrastructure/store/taskStore';
-import { CreateTaskInput } from '@/src/core/use-cases/CreateTaskUseCase';
+import { useTaskStore, selectFilteredTasks, selectTodayStats, TaskFilter } from '@/infrastructure/store/taskStore';
+import { CreateTaskInput } from '@/core/use-cases/CreateTaskUseCase';
 
 export function useTasks() {
   const {

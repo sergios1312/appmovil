@@ -13,12 +13,12 @@
  */
 
 import { create } from 'zustand';
-import { Task, TaskWithChildrenMeta, UpdateTaskDTO } from '@/src/core/entities/Task';
-import { taskRepository } from '@/src/data/repositories/TaskRepository';
-import { GetTasksUseCase } from '@/src/core/use-cases/GetTasksUseCase';
-import { CreateTaskUseCase, CreateTaskInput } from '@/src/core/use-cases/CreateTaskUseCase';
-import { UpdateTaskUseCase } from '@/src/core/use-cases/UpdateTaskUseCase';
-import { DeleteTaskUseCase } from '@/src/core/use-cases/DeleteTaskUseCase';
+import { Task, TaskWithChildrenMeta, UpdateTaskDTO } from '@/core/entities/Task';
+import { taskRepository } from '@/data/repositories/TaskRepository';
+import { GetTasksUseCase } from '@/core/use-cases/GetTasksUseCase';
+import { CreateTaskUseCase, CreateTaskInput } from '@/core/use-cases/CreateTaskUseCase';
+import { UpdateTaskUseCase } from '@/core/use-cases/UpdateTaskUseCase';
+import { DeleteTaskUseCase } from '@/core/use-cases/DeleteTaskUseCase';
 
 // Instanciar use cases con el repositorio (DI manual)
 const getTasksUC = new GetTasksUseCase(taskRepository);

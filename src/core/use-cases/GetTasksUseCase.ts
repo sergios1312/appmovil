@@ -6,8 +6,8 @@
  * No conoce implementaciones concretas.
  */
 
-import { ITaskRepository } from '@/src/core/interfaces/ITaskRepository';
-import { Task, TaskWithChildrenMeta } from '@/src/core/entities/Task';
+import { ITaskRepository } from '@/core/interfaces/ITaskRepository';
+import { Task, TaskWithChildrenMeta } from '@/core/entities/Task';
 
 export class GetTasksUseCase {
   constructor(private readonly taskRepository: ITaskRepository) {}

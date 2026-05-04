@@ -6,10 +6,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTasks } from '@/src/presentation/hooks/useTasks';
-import { TaskCard } from '@/src/presentation/components/task/TaskCard';
-import { TaskFilter } from '@/src/infrastructure/store/taskStore';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/src/utils/constants';
+import { useTasks } from '@/presentation/hooks/useTasks';
+import { TaskCard } from '@/presentation/components/task/TaskCard';
+import { TaskFilter } from '@/infrastructure/store/taskStore';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: 'all', label: 'Todas' },

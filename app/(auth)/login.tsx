@@ -15,8 +15,8 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/src/presentation/hooks/useAuth';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/src/utils/constants';
+import { useAuth } from '@/presentation/hooks/useAuth';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
 
 export default function LoginScreen() {
   const { signIn, isLoading, error, clearError } = useAuth();

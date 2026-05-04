@@ -8,9 +8,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { TaskWithChildrenMeta, TaskPriority } from '@/src/core/entities/Task';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/src/utils/constants';
-import { formatDueDate, isOverdue } from '@/src/utils/dateHelpers';
+import { TaskWithChildrenMeta, TaskPriority } from '@/core/entities/Task';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
+import { formatDueDate, isOverdue } from '@/utils/dateHelpers';
 
 interface TaskCardProps {
   task: TaskWithChildrenMeta;

@@ -6,9 +6,9 @@
 
 import { useEffect } from 'react';
 import * as AuthSession from 'expo-auth-session';
-import { useAuthStore } from '@/src/infrastructure/store/authStore';
-import { useGoogleAuth, fetchGoogleUserInfo, GOOGLE_OAUTH_CONFIG } from '@/src/infrastructure/auth/googleAuth';
-import { User } from '@/src/core/entities/User';
+import { useAuthStore } from '@/infrastructure/store/authStore';
+import { useGoogleAuth, fetchGoogleUserInfo, GOOGLE_OAUTH_CONFIG } from '@/infrastructure/auth/googleAuth';
+import { User } from '@/core/entities/User';
 
 export function useAuth() {
   const { user, status, error, setUser, signOut, restoreSession, setStatus, setError } =

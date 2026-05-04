@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { COLORS, SPACING, RADIUS } from '@/src/utils/constants';
+import { COLORS, SPACING, RADIUS } from '@/utils/constants';
 
 type CardVariant = 'default' | 'elevated' | 'outlined';
 

@@ -1,109 +1,195 @@
-/**
- * @file (tabs)/calendar.tsx → Tab "Calendario"
- * @description Vista de calendario (placeholder para futura integración con Google Calendar).
- */
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/src/utils/constants';
-import { formatDateFriendly } from '@/src/utils/dateHelpers';
+import { fetchPrimaryCalendarEvents } from '@/infrastructure/services/googleCalendar';
+import { fetchGoogleProfile, useGoogleLoginRequest } from '@/infrastructure/services/googleAuth';
+import { useAuthStore } from '@/presentation/store/authStore';
+import type { CalendarEvent } from '@/core/types/calendar';
 
 export default function CalendarScreen() {
-  const today = new Date();
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [request, response, promptAsync] = useGoogleLoginRequest();
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const user = useAuthStore((state) => state.user);
+  const setSession = useAuthStore((state) => state.setSession);
+  const clearSession = useAuthStore((state) => state.clearSession);
+
+  useEffect(() => {
+    const runAuthFlow = async () => {
+      if (response?.type !== 'success') {
+        return;
+      }
+      const token = response.authentication?.accessToken;
+      if (!token) {
+        setError('No se recibió access token de Google.');
+        return;
+      }
+
+      try {
+        setError(null);
+        const profile = await fetchGoogleProfile(token);
+        setSession({ accessToken: token, user: profile });
+      } catch (authError) {
+        setError(authError instanceof Error ? authError.message : 'Error autenticando con Google.');
+      }
+    };
+
+    runAuthFlow();
+  }, [response, setSession]);
+
+  useEffect(() => {
+    const loadEvents = async () => {
+      if (!accessToken) {
+        setEvents([]);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const next7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        const upcomingEvents = await fetchPrimaryCalendarEvents(accessToken, {
+          timeMax: next7Days,
+        });
+        setEvents(upcomingEvents);
+      } catch (requestError) {
+        setError(requestError instanceof Error ? requestError.message : 'Error consultando Calendar.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, [accessToken]);
+
+  const isAuthenticated = useMemo(() => !!accessToken, [accessToken]);
+
+  const handleSignIn = async () => {
+    setError(null);
+    await promptAsync();
+  };
+
+  const handleSignOut = () => {
+    clearSession();
+    setEvents([]);
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Calendario</Text>
-          <Text style={styles.subtitle}>{formatDateFriendly(today)}</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Google Calendar</Text>
+      <Text style={styles.subtitle}>Conexión OAuth + lectura de eventos del calendario primario.</Text>
+
+      {!isAuthenticated ? (
+        <Pressable
+          disabled={!request}
+          onPress={handleSignIn}
+          style={[styles.button, !request && styles.buttonDisabled]}
+        >
+          <Text style={styles.buttonText}>Iniciar sesión con Google</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{user?.name ?? 'Usuario autenticado'}</Text>
+          <Text style={styles.cardText}>{user?.email ?? 'Sin correo'}</Text>
+          <Pressable onPress={handleSignOut} style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Cerrar sesión</Text>
+          </Pressable>
         </View>
+      )}
 
-        {/* Placeholder de integración */}
-        <View style={styles.placeholderCard}>
-          <Text style={styles.placeholderEmoji}>📅</Text>
-          <Text style={styles.placeholderTitle}>Google Calendar</Text>
-          <Text style={styles.placeholderText}>
-            La integración con Google Calendar se implementará en la próxima iteración.
-            {'\n\n'}
-            Una vez conectado, verás aquí tus eventos sincronizados con las tareas.
-          </Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Próximamente</Text>
-          </View>
+      {isAuthenticated && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Próximos eventos</Text>
+          {isLoading ? (
+            <Text style={styles.cardText}>Cargando eventos...</Text>
+          ) : events.length === 0 ? (
+            <Text style={styles.cardText}>No hay eventos próximos.</Text>
+          ) : (
+            events.map((event) => (
+              <View key={event.id} style={styles.eventRow}>
+                <Text style={styles.eventTitle}>{event.title}</Text>
+                <Text style={styles.cardText}>{new Date(event.startDate).toLocaleString()}</Text>
+              </View>
+            ))
+          )}
         </View>
+      )}
 
-        {/* Preview de la semana */}
-        <Text style={styles.sectionTitle}>Esta semana</Text>
-        <WeekPreview />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function WeekPreview() {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return d;
-  });
-
-  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-
-  return (
-    <View style={styles.weekRow}>
-      {days.map((day, i) => {
-        const isToday = i === 0;
-        return (
-          <View key={i} style={[styles.dayCell, isToday && styles.dayCellToday]}>
-            <Text style={[styles.dayName, isToday && styles.dayNameToday]}>
-              {dayNames[day.getDay()]}
-            </Text>
-            <Text style={[styles.dayNumber, isToday && styles.dayNumberToday]}>
-              {day.getDate()}
-            </Text>
-          </View>
-        );
-      })}
-    </View>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { padding: SPACING.lg, gap: SPACING.lg },
-  header: { paddingTop: SPACING.md },
-  title: { fontSize: TYPOGRAPHY.xxl, fontWeight: '700', color: COLORS.textPrimary },
-  subtitle: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary, marginTop: 2 },
-  placeholderCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.xl,
-    alignItems: 'center',
-    gap: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  container: {
+    padding: 20,
+    gap: 12,
   },
-  placeholderEmoji: { fontSize: 48 },
-  placeholderTitle: { fontSize: TYPOGRAPHY.xl, fontWeight: '700', color: COLORS.textPrimary },
-  placeholderText: { fontSize: TYPOGRAPHY.md, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
-  badge: { backgroundColor: COLORS.primaryDim, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, borderRadius: RADIUS.full },
-  badgeText: { fontSize: TYPOGRAPHY.xs, color: COLORS.primary, fontWeight: '600' },
-  sectionTitle: { fontSize: TYPOGRAPHY.lg, fontWeight: '600', color: COLORS.textPrimary },
-  weekRow: { flexDirection: 'row', gap: SPACING.xs },
-  dayCell: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
   },
-  dayCellToday: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  dayName: { fontSize: TYPOGRAPHY.xs, color: COLORS.textMuted, fontWeight: '500' },
-  dayNameToday: { color: COLORS.background },
-  dayNumber: { fontSize: TYPOGRAPHY.lg, fontWeight: '700', color: COLORS.textPrimary, marginTop: 2 },
-  dayNumberToday: { color: COLORS.background },
+  subtitle: {
+    fontSize: 14,
+    color: '#555',
+  },
+  button: {
+    backgroundColor: '#111',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  card: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cardText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  secondaryButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  secondaryButtonText: {
+    color: '#333',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  eventRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 8,
+    gap: 2,
+  },
+  eventTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  errorText: {
+    color: '#a00',
+    fontSize: 13,
+  },
 });

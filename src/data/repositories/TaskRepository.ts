@@ -1,118 +1,165 @@
 /**
  * @file TaskRepository.ts
  * @layer data/repositories
- * @description Implementación concreta de ITaskRepository.
- * En modo mock: usa los datos estáticos de tasks.mock.ts.
- * En modo real (futuro): coordinará local (SQLite) + remote (Google APIs).
+ * @description Implementación real del repositorio de tareas usando SQLite.
  *
- * PATRÓN: Repository Pattern con estrategia offline-first:
- * 1. Lee siempre desde local (SQLite)
- * 2. Escribe siempre en local primero
- * 3. Sincroniza con Google en segundo plano (cuando haya conexión)
+ * PATRÓN: Repository Pattern con estrategia offline-first.
  */
 
-import { ITaskRepository } from '@/src/core/interfaces/ITaskRepository';
-import { Task, CreateTaskDTO, UpdateTaskDTO } from '@/src/core/entities/Task';
-import {
-  MOCK_TASKS,
-  getMockTodayTasks,
-  getMockChildren,
-} from '@/src/data/mock/tasks.mock';
-
-// Almacén en memoria para el modo mock (simula SQLite)
-let taskStore: Map<string, Task> = new Map(
-  MOCK_TASKS.map(task => [task.id, task])
-);
+import { ITaskRepository } from '@/core/interfaces/ITaskRepository';
+import { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
+import { getDatabase } from '@/infrastructure/database/database';
+import * as SQLite from 'expo-sqlite';
 
 function generateId(): string {
   return `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 export class TaskRepository implements ITaskRepository {
+  private async getDB(): Promise<SQLite.SQLiteDatabase> {
+    return await getDatabase();
+  }
+
+  private mapRowToTask(row: any): Task {
+    return {
+      ...row,
+      parent_id: row.parent_id || null,
+      tags: typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags || [],
+      is_synced: Boolean(row.is_synced),
+    };
+  }
 
   async getAll(includeCompleted = false): Promise<Task[]> {
-    const tasks = Array.from(taskStore.values());
-    if (includeCompleted) return tasks;
-    return tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled');
+    const db = await this.getDB();
+    let query = 'SELECT * FROM tasks';
+    if (!includeCompleted) {
+      query += " WHERE status NOT IN ('completed', 'cancelled')";
+    }
+    query += ' ORDER BY created_at DESC';
+
+    const rows = await db.getAllAsync(query);
+    return rows.map((row) => this.mapRowToTask(row));
   }
 
   async getToday(): Promise<Task[]> {
-    // TODO (Real): Consultar SQLite con WHERE date(due_date) = date('now')
-    const today = new Date().toDateString();
-    return Array.from(taskStore.values()).filter(task => {
-      if (!task.due_date) return false;
-      return new Date(task.due_date).toDateString() === today;
-    });
+    const db = await this.getDB();
+    const today = new Date().toISOString().split('T')[0];
+    const rows = await db.getAllAsync(
+      'SELECT * FROM tasks WHERE date(due_date) = ? ORDER BY created_at DESC',
+      [today]
+    );
+    return rows.map((row) => this.mapRowToTask(row));
   }
 
   async getChildren(parentId: string): Promise<Task[]> {
-    // TODO (Real): SELECT * FROM tasks WHERE parent_id = ?
-    return Array.from(taskStore.values()).filter(t => t.parent_id === parentId);
+    const db = await this.getDB();
+    const rows = await db.getAllAsync(
+      'SELECT * FROM tasks WHERE parent_id = ? ORDER BY created_at DESC',
+      [parentId]
+    );
+    return rows.map((row) => this.mapRowToTask(row));
   }
 
   async getById(id: string): Promise<Task | null> {
-    return taskStore.get(id) ?? null;
+    const db = await this.getDB();
+    const row = await db.getFirstAsync('SELECT * FROM tasks WHERE id = ?', [id]);
+    return row ? this.mapRowToTask(row) : null;
   }
 
   async create(dto: CreateTaskDTO): Promise<Task> {
+    const db = await this.getDB();
+    const id = generateId();
     const now = new Date().toISOString();
-    const newTask: Task = {
-      ...dto,
-      id: generateId(),
-      is_synced: false,
-      created_at: now,
-      updated_at: now,
-    };
 
-    // TODO (Real): INSERT INTO tasks VALUES (...)
-    taskStore.set(newTask.id, newTask);
-    return newTask;
+    await db.runAsync(
+      `INSERT INTO tasks (
+        id, parent_id, title, description, status, priority,
+        due_date, google_event_id, google_task_id, google_tasklist_id,
+        tags, is_synced, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        dto.parent_id || null,
+        dto.title,
+        dto.description || null,
+        dto.status || 'pending',
+        dto.priority || 'medium',
+        dto.due_date || null,
+        dto.google_event_id || null,
+        dto.google_task_id || null,
+        dto.google_tasklist_id || null,
+        JSON.stringify(dto.tags || []),
+        0,
+        now,
+        now,
+      ]
+    );
+
+    const created = await this.getById(id);
+    if (!created) throw new Error('Failed to create task');
+    return created;
   }
 
   async update(dto: UpdateTaskDTO): Promise<Task> {
-    const existing = taskStore.get(dto.id);
-    if (!existing) throw new Error(`Task ${dto.id} not found`);
+    const db = await this.getDB();
+    const now = new Date().toISOString();
 
-    const updated: Task = {
-      ...existing,
-      ...dto,
-      updated_at: new Date().toISOString(),
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    // Mapeo de campos a actualizar
+    const mappings: Record<string, string> = {
+      parent_id: 'parent_id',
+      title: 'title',
+      description: 'description',
+      status: 'status',
+      priority: 'priority',
+      due_date: 'due_date',
+      google_event_id: 'google_event_id',
+      google_task_id: 'google_task_id',
+      google_tasklist_id: 'google_tasklist_id',
     };
 
-    // TODO (Real): UPDATE tasks SET ... WHERE id = ?
-    taskStore.set(dto.id, updated);
+    for (const [key, dbField] of Object.entries(mappings)) {
+      if (dto.hasOwnProperty(key)) {
+        fields.push(`${dbField} = ?`);
+        values.push((dto as any)[key]);
+      }
+    }
+
+    if (dto.tags) {
+      fields.push('tags = ?');
+      values.push(JSON.stringify(dto.tags));
+    }
+
+    fields.push('updated_at = ?');
+    values.push(now);
+
+    fields.push('is_synced = ?');
+    values.push(0);
+
+    values.push(dto.id);
+
+    const query = `UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`;
+    await db.runAsync(query, values);
+
+    const updated = await this.getById(dto.id);
+    if (!updated) throw new Error(`Task ${dto.id} not found after update`);
     return updated;
   }
 
   async delete(id: string): Promise<void> {
-    // TODO (Real): DELETE FROM tasks WHERE id = ? (con ON DELETE CASCADE para subtareas)
-    taskStore.delete(id);
+    const db = await this.getDB();
+    // ON DELETE CASCADE se encarga de las subtareas según el schema en database.ts
+    await db.runAsync('DELETE FROM tasks WHERE id = ?', [id]);
   }
 
   async complete(id: string): Promise<Task> {
     return this.update({
       id,
       status: 'completed',
-      is_synced: false,
     });
-  }
-
-  /**
-   * Sincronización con Google (implementar en próxima iteración)
-   * Estrategia: Last-Write-Wins con timestamp
-   */
-  async syncWithGoogle(): Promise<void> {
-    console.log('[TaskRepository] syncWithGoogle: pendiente de implementación');
-    // TODO: Obtener token → llamar GoogleTasksService.getTasks() → merge local/remote
-  }
-
-  /**
-   * Resetea el store al estado inicial (útil para testing)
-   */
-  reset(): void {
-    taskStore = new Map(MOCK_TASKS.map(task => [task.id, task]));
   }
 }
 
-// Singleton para uso en toda la app (DI manual)
 export const taskRepository = new TaskRepository();

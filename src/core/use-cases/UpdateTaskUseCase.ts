@@ -4,8 +4,8 @@
  */
 
 import { z } from 'zod';
-import { ITaskRepository } from '@/src/core/interfaces/ITaskRepository';
-import { Task, UpdateTaskDTO } from '@/src/core/entities/Task';
+import { ITaskRepository } from '@/core/interfaces/ITaskRepository';
+import { Task, UpdateTaskDTO } from '@/core/entities/Task';
 
 export const UpdateTaskSchema = z.object({
   id: z.string().uuid(),

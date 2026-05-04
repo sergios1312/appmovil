@@ -4,7 +4,7 @@
  * @description Contrato abstracto para autenticación Google OAuth.
  */
 
-import { User, OAuthResult } from '@/src/core/entities/User';
+import { User, OAuthResult } from '@/core/entities/User';
 
 export interface IAuthRepository {
   /**

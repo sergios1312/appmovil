@@ -5,8 +5,8 @@
  */
 
 import { z } from 'zod';
-import { ITaskRepository } from '@/src/core/interfaces/ITaskRepository';
-import { Task, CreateTaskDTO } from '@/src/core/entities/Task';
+import { ITaskRepository } from '@/core/interfaces/ITaskRepository';
+import { Task, CreateTaskDTO } from '@/core/entities/Task';
 
 // Schema de validación de negocio (independiente de la UI)
 export const CreateTaskSchema = z.object({

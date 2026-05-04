@@ -3,7 +3,7 @@
  * @layer core/use-cases
  */
 
-import { ITaskRepository } from '@/src/core/interfaces/ITaskRepository';
+import { ITaskRepository } from '@/core/interfaces/ITaskRepository';
 
 export class DeleteTaskUseCase {
   constructor(private readonly taskRepository: ITaskRepository) {}
