@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fetchPrimaryCalendarEvents } from '@/infrastructure/services/googleCalendar';
-import { fetchGoogleProfile, useGoogleLoginRequest } from '@/infrastructure/services/googleAuth';
+import { fetchGoogleProfile, signInWithGoogle } from '@/infrastructure/services/googleAuth';
 import { useAuthStore } from '@/presentation/store/authStore';
 import type { CalendarEvent } from '@/core/types/calendar';
 
@@ -11,45 +11,10 @@ export default function CalendarScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [request, response, promptAsync] = useGoogleLoginRequest();
   const accessToken = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const signOut = useAuthStore((state) => state.signOut);
-
-  useEffect(() => {
-    const runAuthFlow = async () => {
-      if (response?.type !== 'success') {
-        return;
-      }
-      const token =
-        response.authentication?.accessToken ??
-        response.params?.access_token;
-      if (!token) {
-        setError('No se recibió access token de Google.');
-        return;
-      }
-
-      try {
-        setError(null);
-        const profile = await fetchGoogleProfile(token);
-        const expiresAt = new Date(Date.now() + 3600000).toISOString();
-        await setUser({
-          id: profile.id,
-          email: profile.email,
-          name: profile.name,
-          avatar_url: profile.picture,
-          access_token: token,
-          token_expires_at: expiresAt,
-          granted_scopes: [],
-        });
-      } catch (authError) {
-        setError(authError instanceof Error ? authError.message : 'Error autenticando con Google.');
-      }
-    };
-
-    runAuthFlow();
-  }, [response, setUser]);
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -80,7 +45,24 @@ export default function CalendarScreen() {
 
   const handleSignIn = async () => {
     setError(null);
-    await promptAsync();
+    try {
+      const result = await signInWithGoogle();
+      if (!result) return;
+
+      const profile = await fetchGoogleProfile(result.accessToken);
+      const expiresAt = new Date(Date.now() + 3600000).toISOString();
+      await setUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        avatar_url: profile.picture,
+        access_token: result.accessToken,
+        token_expires_at: expiresAt,
+        granted_scopes: [],
+      });
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : 'Error autenticando con Google.');
+    }
   };
 
   const handleSignOut = async () => {
@@ -95,9 +77,8 @@ export default function CalendarScreen() {
 
       {!isAuthenticated ? (
         <Pressable
-          disabled={!request}
           onPress={handleSignIn}
-          style={[styles.button, !request && styles.buttonDisabled]}
+          style={styles.button}
         >
           <Text style={styles.buttonText}>Iniciar sesión con Google</Text>
         </Pressable>
