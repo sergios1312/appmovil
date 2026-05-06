@@ -1,5 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { Task } from '@/core/entities/Task';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
+
+const PRIORITY_COLORS: Record<string, string> = {
+  low: COLORS.priorityLow,
+  medium: COLORS.priorityMedium,
+  high: COLORS.priorityHigh,
+  urgent: COLORS.priorityUrgent,
+};
 
 interface TaskItemProps {
   task: Task;
@@ -7,17 +16,48 @@ interface TaskItemProps {
 }
 
 export default function TaskItem({ task, onPress }: TaskItemProps) {
+  const priorityColor = PRIORITY_COLORS[task.priority] ?? COLORS.textMuted;
+  const isCompleted = task.status === 'completed';
+
   return (
-    <Pressable style={styles.container} onPress={() => onPress(task)}>
-      <View style={styles.row}>
-        <Text style={styles.title}>{task.title}</Text>
-        <View style={[styles.badge, task.status === 'completed' && styles.badgeCompleted]}>
-          <Text style={styles.status}>{task.status}</Text>
+    <Pressable
+      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      onPress={() => onPress(task)}
+    >
+      {/* Priority indicator */}
+      <View style={[styles.priorityBar, { backgroundColor: priorityColor }]} />
+
+      <View style={styles.content}>
+        <View style={styles.row}>
+          {/* Completed icon */}
+          <Ionicons
+            name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+            size={20}
+            color={isCompleted ? COLORS.success : COLORS.textMuted}
+          />
+          <Text style={[styles.title, isCompleted && styles.titleCompleted]} numberOfLines={1}>
+            {task.title}
+          </Text>
         </View>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.meta}>Vence: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'Sin fecha'}</Text>
-        <Text style={[styles.priority, styles[task.priority]]}>{task.priority}</Text>
+
+        <View style={styles.metaRow}>
+          <View style={[styles.badge, { borderColor: priorityColor }]}>
+            <Text style={[styles.priority, { color: priorityColor }]}>{task.priority}</Text>
+          </View>
+          {task.due_date && (
+            <View style={styles.dueDateRow}>
+              <Ionicons name="calendar-outline" size={11} color={COLORS.textMuted} />
+              <Text style={styles.dueDate}>
+                {new Date(task.due_date).toLocaleDateString('es', {
+                  day: '2-digit',
+                  month: 'short',
+                })}
+              </Text>
+            </View>
+          )}
+          <View style={styles.spacer} />
+          <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+        </View>
       </View>
     </Pressable>
   );
@@ -25,55 +65,63 @@ export default function TaskItem({ task, onPress }: TaskItemProps) {
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: '#efefef',
-    borderRadius: 14,
-    padding: 16,
-    gap: 8,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  priorityBar: {
+    width: 4,
+  },
+  content: {
+    flex: 1,
+    padding: SPACING.md,
+    gap: SPACING.sm,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: SPACING.sm,
   },
   title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1f2937',
     flex: 1,
+    fontSize: TYPOGRAPHY.md,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  titleCompleted: {
+    textDecorationLine: 'line-through',
+    color: COLORS.textMuted,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   badge: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
-  },
-  badgeCompleted: {
-    backgroundColor: '#d1fae5',
-  },
-  status: {
-    fontSize: 11,
-    color: '#4b5563',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  meta: {
-    fontSize: 13,
-    color: '#9ca3af',
   },
   priority: {
-    fontSize: 11,
+    fontSize: TYPOGRAPHY.xs,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
-  low: { color: '#10b981' },
-  medium: { color: '#f59e0b' },
-  high: { color: '#ef4444' },
-  urgent: { color: '#7c3aed' },
+  dueDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  dueDate: {
+    fontSize: TYPOGRAPHY.xs,
+    color: COLORS.textMuted,
+  },
+  spacer: { flex: 1 },
 });

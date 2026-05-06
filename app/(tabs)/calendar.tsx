@@ -14,15 +14,17 @@ export default function CalendarScreen() {
   const [request, response, promptAsync] = useGoogleLoginRequest();
   const accessToken = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
-  const setSession = useAuthStore((state) => state.setSession);
-  const clearSession = useAuthStore((state) => state.clearSession);
+  const setUser = useAuthStore((state) => state.setUser);
+  const signOut = useAuthStore((state) => state.signOut);
 
   useEffect(() => {
     const runAuthFlow = async () => {
       if (response?.type !== 'success') {
         return;
       }
-      const token = response.authentication?.accessToken;
+      const token =
+        response.authentication?.accessToken ??
+        response.params?.access_token;
       if (!token) {
         setError('No se recibió access token de Google.');
         return;
@@ -31,14 +33,23 @@ export default function CalendarScreen() {
       try {
         setError(null);
         const profile = await fetchGoogleProfile(token);
-        setSession({ accessToken: token, user: profile });
+        const expiresAt = new Date(Date.now() + 3600000).toISOString();
+        await setUser({
+          id: profile.id,
+          email: profile.email,
+          name: profile.name,
+          avatar_url: profile.picture,
+          access_token: token,
+          token_expires_at: expiresAt,
+          granted_scopes: [],
+        });
       } catch (authError) {
         setError(authError instanceof Error ? authError.message : 'Error autenticando con Google.');
       }
     };
 
     runAuthFlow();
-  }, [response, setSession]);
+  }, [response, setUser]);
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -72,8 +83,8 @@ export default function CalendarScreen() {
     await promptAsync();
   };
 
-  const handleSignOut = () => {
-    clearSession();
+  const handleSignOut = async () => {
+    await signOut();
     setEvents([]);
   };
 

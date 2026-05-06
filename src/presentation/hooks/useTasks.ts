@@ -1,47 +1,41 @@
-/**
- * @file useTasks.ts
- * @layer presentation/hooks
- * @description Hook de React que conecta la UI con el taskStore.
- * Encapsula la lógica de carga inicial y expone datos ya procesados.
- */
-
 import { useEffect } from 'react';
-import { useTaskStore, selectFilteredTasks, selectTodayStats, TaskFilter } from '@/infrastructure/store/taskStore';
-import { CreateTaskInput } from '@/core/use-cases/CreateTaskUseCase';
+import {
+  useTaskStore,
+  selectFilteredTasks,
+  selectTodayStats,
+  TaskFilter,
+} from '@/presentation/store/taskStore';
+import { CreateTaskDTO } from '@/core/entities/Task';
 
 export function useTasks() {
   const {
-    todayTasks,
-    allRootTasks,
+    tasks,
     isLoading,
     error,
     activeFilter,
-    loadTodayTasks,
-    loadAllTasks,
-    createTask,
+    selectedTaskId,
+    loadTasks,
+    addTask,
     updateTask,
     deleteTask,
     toggleComplete,
     setFilter,
     selectTask,
-    selectedTaskId,
     clearError,
   } = useTaskStore();
 
-  // Carga inicial de tareas al montar el hook
+  // Carga inicial al montar el hook
   useEffect(() => {
-    loadTodayTasks();
-    loadAllTasks();
+    loadTasks();
   }, []);
 
-  // Datos derivados
+  // Datos derivados via selectores
   const filteredTasks = useTaskStore(selectFilteredTasks);
   const todayStats = useTaskStore(selectTodayStats);
 
   return {
     // Datos
-    todayTasks,
-    allRootTasks,
+    tasks,
     filteredTasks,
     todayStats,
     isLoading,
@@ -50,16 +44,13 @@ export function useTasks() {
     selectedTaskId,
 
     // Acciones
-    createTask: async (input: CreateTaskInput) => createTask(input),
+    createTask: (input: CreateTaskDTO) => addTask(input),
     updateTask,
     deleteTask,
     toggleComplete,
     setFilter: (f: TaskFilter) => setFilter(f),
     selectTask,
-    refresh: async () => {
-      await loadTodayTasks();
-      await loadAllTasks();
-    },
+    refresh: () => loadTasks(),
     clearError,
   };
 }

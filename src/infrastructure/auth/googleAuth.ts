@@ -1,22 +1,18 @@
 /**
  * @file googleAuth.ts
  * @layer infrastructure/auth
- * @description Configuración de Google OAuth con expo-auth-session.
+ * @description Configuración de Google OAuth con AuthSession directo (NO el provider de Google).
  *
- * CONFIGURACIÓN REQUERIDA:
- * 1. Crear proyecto en https://console.cloud.google.com/
- * 2. Habilitar: Google Calendar API + Google Tasks API
- * 3. Crear credencial OAuth 2.0 → tipo: Android
- *    - Package name: com.tuempresa.appmovil (debe coincidir con app.json)
- *    - SHA-1 fingerprint: obtener con `eas credentials`
- * 4. Copiar el Client ID en .env.local
+ * Usamos AuthSession.useAuthRequest directamente en lugar de Google.useAuthRequest
+ * porque el provider de Google sobreescribe el redirectUri y genera `exp://` que Google rechaza.
  *
- * NOTA: Para Expo Managed Workflow (sin código nativo), se usa el proxy de Expo:
- * https://auth.expo.io/@tu-usuario/appmovil
- * Esto permite hacer OAuth sin necesidad de configurar el redirect URI manualmente.
+ * CONFIGURACIÓN REQUERIDA en Google Cloud Console:
+ * 1. Client ID tipo "Web application"
+ * 2. URI de redirección autorizada: https://auth.expo.io/@sergiosdok/appmovil
+ * 3. APIs habilitadas: Google Tasks API, Google Calendar API
+ * 4. Pantalla de consentimiento: usuario de prueba agregado
  */
 
-import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -24,13 +20,10 @@ import * as WebBrowser from 'expo-web-browser';
 WebBrowser.maybeCompleteAuthSession();
 
 /**
- * Scopes solicitados a Google:
- * - profile: nombre y foto del usuario
- * - email: correo del usuario
- * - calendar: leer/escribir eventos de Google Calendar
- * - tasks: leer/escribir tareas de Google Tasks
+ * Scopes solicitados a Google
  */
 export const GOOGLE_SCOPES = [
+  'openid',
   'profile',
   'email',
   'https://www.googleapis.com/auth/calendar',
@@ -39,46 +32,51 @@ export const GOOGLE_SCOPES = [
 ];
 
 /**
- * IDs de cliente OAuth de Google
- * Obtener desde Google Cloud Console
- * Para Android en Expo Managed: usar el androidClientId
+ * Discovery document de Google OAuth 2.0
+ * Estos son los endpoints oficiales y estables de Google.
  */
+const discovery: AuthSession.DiscoveryDocument = {
+  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+  tokenEndpoint: 'https://oauth2.googleapis.com/token',
+  revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
+};
+
+/**
+ * La URI de redirección que usamos en Expo Go.
+ * ESTA MISMA debe estar registrada en Google Cloud Console.
+ */
+const REDIRECT_URI = 'https://auth.expo.io/@sergiosdok/appmovil';
+
+/**
+ * El Web Client ID de Google Cloud Console.
+ */
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
+
 export const GOOGLE_OAUTH_CONFIG = {
-  // Reemplazar con tu Client ID de Google Cloud Console
-  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? '',
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
-
+  webClientId: WEB_CLIENT_ID,
   scopes: GOOGLE_SCOPES,
-
-  // URI de redirección para Expo Go (development):
-  // https://auth.expo.io/@sergiosdok/appmovil
-  // Para producción (EAS Build): se usa el scheme del app.json automáticamente
-  redirectUri: AuthSession.makeRedirectUri({
-    scheme: 'com.sergiosdok.appmovil',
-    path: 'auth',
-  }),
+  redirectUri: REDIRECT_URI,
 };
 
 /**
  * Hook de React para el flujo OAuth de Google.
- * Usar en componentes/pantallas de login.
- *
- * Ejemplo de uso:
- * const [request, response, promptAsync] = useGoogleAuth();
- * // Al presionar login: await promptAsync();
- * // Manejar respuesta en useEffect([response])
+ * Usa AuthSession.useAuthRequest DIRECTAMENTE para tener control total del redirectUri.
  */
 export function useGoogleAuth() {
-  return Google.useAuthRequest({
-    androidClientId: GOOGLE_OAUTH_CONFIG.androidClientId,
-    webClientId: GOOGLE_OAUTH_CONFIG.webClientId,
-    scopes: GOOGLE_SCOPES,
-  });
+  return AuthSession.useAuthRequest(
+    {
+      clientId: WEB_CLIENT_ID,
+      redirectUri: REDIRECT_URI,
+      scopes: GOOGLE_SCOPES,
+      responseType: AuthSession.ResponseType.Token,
+      usePKCE: false,
+    },
+    discovery
+  );
 }
 
 /**
  * Obtiene información del perfil del usuario desde la API de Google
- * usando el access token obtenido en el flujo OAuth.
  */
 export async function fetchGoogleUserInfo(accessToken: string) {
   const response = await fetch('https://www.googleapis.com/userinfo/v2/me', {

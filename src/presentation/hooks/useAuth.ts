@@ -6,7 +6,7 @@
 
 import { useEffect } from 'react';
 import * as AuthSession from 'expo-auth-session';
-import { useAuthStore } from '@/infrastructure/store/authStore';
+import { useAuthStore } from '@/presentation/store/authStore';
 import { useGoogleAuth, fetchGoogleUserInfo, GOOGLE_OAUTH_CONFIG } from '@/infrastructure/auth/googleAuth';
 import { User } from '@/core/entities/User';
 
@@ -24,9 +24,17 @@ export function useAuth() {
   // Manejar respuesta del flujo OAuth
   useEffect(() => {
     if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.accessToken) {
-        handleOAuthSuccess(authentication);
+      // AuthSession.useAuthRequest con ResponseType.Token devuelve el token
+      // directamente en response.params (implicit flow)
+      const accessToken =
+        response.authentication?.accessToken ??
+        response.params?.access_token;
+
+      if (accessToken) {
+        handleOAuthSuccess(accessToken);
+      } else {
+        setError('No se recibió access token de Google');
+        setStatus('error');
       }
     } else if (response?.type === 'error') {
       setError(response.error?.message ?? 'Error en autenticación de Google');
@@ -34,22 +42,20 @@ export function useAuth() {
     }
   }, [response]);
 
-  const handleOAuthSuccess = async (authentication: AuthSession.TokenResponse) => {
+  const handleOAuthSuccess = async (accessToken: string) => {
     setStatus('loading');
     try {
-      const profile = await fetchGoogleUserInfo(authentication.accessToken);
+      const profile = await fetchGoogleUserInfo(accessToken);
 
-      const expiresAt = authentication.expiresIn
-        ? new Date(Date.now() + authentication.expiresIn * 1000).toISOString()
-        : new Date(Date.now() + 3600000).toISOString(); // 1 hora por defecto
+      const expiresAt = new Date(Date.now() + 3600000).toISOString(); // 1 hora por defecto
 
       const newUser: User = {
         id: profile.id,
         email: profile.email,
         name: profile.name,
         avatar_url: profile.picture,
-        access_token: authentication.accessToken,
-        refresh_token: authentication.refreshToken ?? undefined,
+        access_token: accessToken,
+        refresh_token: undefined,
         token_expires_at: expiresAt,
         granted_scopes: GOOGLE_OAUTH_CONFIG.scopes,
       };

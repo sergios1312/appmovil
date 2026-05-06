@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/presentation/hooks/useAuth';
+import { useTaskStore } from '@/presentation/store/taskStore';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
 
 interface SettingItem {
@@ -20,6 +21,8 @@ interface SettingItem {
 
 export default function SettingsScreen() {
   const { user, signOut, isAuthenticated } = useAuth();
+  const syncWithGoogle = useTaskStore((state) => state.syncWithGoogle);
+  const isLoading = useTaskStore((state) => state.isLoading);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -32,9 +35,18 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleSync = async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Inicia sesión', 'Debes estar conectado con Google para sincronizar.');
+      return;
+    }
+    await syncWithGoogle();
+    Alert.alert('Sincronización', 'Tareas sincronizadas con éxito.');
+  };
+
   const SETTINGS: SettingItem[] = [
     { icon: 'logo-google', label: 'Cuenta de Google', value: user?.email ?? 'No conectado' },
-    { icon: 'sync-outline', label: 'Sincronización', value: 'Manual', onPress: () => {} },
+    { icon: 'sync-outline', label: 'Sincronización', value: isLoading ? 'Sincronizando...' : 'Manual', onPress: handleSync },
     { icon: 'notifications-outline', label: 'Notificaciones', value: 'Activadas', onPress: () => {} },
     { icon: 'moon-outline', label: 'Tema', value: 'Oscuro', onPress: () => {} },
     { icon: 'information-circle-outline', label: 'Versión', value: '1.0.0' },

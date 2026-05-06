@@ -1,13 +1,22 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
 
 interface FloatingActionButtonProps {
   onPress: () => void;
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
 }
 
-export default function FloatingActionButton({ onPress }: FloatingActionButtonProps) {
+export default function FloatingActionButton({
+  onPress,
+  icon = 'add',
+}: FloatingActionButtonProps) {
   return (
-    <Pressable onPress={onPress} style={styles.button}>
-      <Text style={styles.label}>+</Text>
+    <Pressable
+      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      onPress={onPress}
+    >
+      <Ionicons name={icon} size={28} color="#fff" />
     </Pressable>
   );
 }
@@ -15,25 +24,22 @@ export default function FloatingActionButton({ onPress }: FloatingActionButtonPr
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    right: 20,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#111',
+    right: SPACING.xl,
+    bottom: SPACING.xl,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  label: {
-    color: '#fff',
-    fontSize: 28,
-    lineHeight: 30,
-    fontWeight: '500',
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.95 }],
   },
 });
-
