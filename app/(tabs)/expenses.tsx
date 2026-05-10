@@ -1,16 +1,16 @@
 /**
  * @file (tabs)/expenses.tsx → Tab "Gastos"
- * @description Módulo básico para control financiero (en construcción).
+ * @description Módulo financiero – Estilo Quest UI.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert, FlatList,
+  TouchableOpacity, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Expense {
@@ -88,38 +88,48 @@ export default function ExpensesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Gastos</Text>
-        <Text style={styles.subtitle}>
-          <Ionicons name="construct-outline" size={13} color={COLORS.textMuted} /> Módulo en construcción
-        </Text>
+        <Text style={styles.appLabel}>INVENTARIO</Text>
+        <Text style={styles.title}>Gestión de Recursos</Text>
+        <Text style={styles.subtitle}>Control financiero mensual</Text>
 
         {/* Stats */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, styles.statCardAccent]}>
+          <View style={[styles.statCard, styles.statCardPrimary]}>
             <Ionicons name="wallet-outline" size={22} color={COLORS.primary} />
             <Text style={[styles.statNumber, { color: COLORS.primary }]}>S/. {totalMonth.toFixed(2)}</Text>
-            <Text style={[styles.statLabel, { color: COLORS.primary }]}>Este mes</Text>
+            <Text style={[styles.statLabel, { color: COLORS.primary }]}>ESTE MES</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="receipt-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.statNumber}>{monthExpenses.length}</Text>
-            <Text style={styles.statLabel}>Transacciones</Text>
+            <Text style={styles.statLabel}>TRANSACCIONES</Text>
           </View>
         </View>
 
         {/* Add button */}
         <TouchableOpacity style={styles.addButton} onPress={() => setShowForm(!showForm)}>
-          <Ionicons name={showForm ? 'close-circle-outline' : 'add-circle-outline'} size={20} color={COLORS.background} />
-          <Text style={styles.addButtonText}>{showForm ? 'Cerrar' : 'Registrar gasto'}</Text>
+          <Ionicons name={showForm ? 'close-circle-outline' : 'add-circle-outline'} size={18} color={COLORS.textInverse} />
+          <Text style={styles.addButtonText}>{showForm ? 'CERRAR' : 'REGISTRAR GASTO'}</Text>
         </TouchableOpacity>
 
         {/* Form */}
         {showForm && (
           <View style={styles.formCard}>
-            <TextInput style={styles.input} placeholder="Descripción..." placeholderTextColor={COLORS.textMuted}
-              value={title} onChangeText={setTitle} />
-            <TextInput style={styles.input} placeholder="Monto (S/.)" placeholderTextColor={COLORS.textMuted}
-              value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
+            <TextInput
+              style={styles.input}
+              placeholder="Descripción..."
+              placeholderTextColor={COLORS.textMuted}
+              value={title}
+              onChangeText={setTitle}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Monto (S/.)"
+              placeholderTextColor={COLORS.textMuted}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="decimal-pad"
+            />
             <View style={styles.categoriesRow}>
               {CATEGORIES.map(c => (
                 <TouchableOpacity key={c.key}
@@ -129,27 +139,38 @@ export default function ExpensesScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <TextInput style={styles.input} placeholder="Notas (opcional)" placeholderTextColor={COLORS.textMuted}
-              value={notes} onChangeText={setNotes} />
+            <TextInput
+              style={styles.input}
+              placeholder="Notas (opcional)"
+              placeholderTextColor={COLORS.textMuted}
+              value={notes}
+              onChangeText={setNotes}
+            />
             <TouchableOpacity style={styles.submitBtn} onPress={handleAdd} disabled={!title.trim() || !amount}>
-              <Text style={styles.submitBtnText}>Agregar gasto</Text>
+              <Ionicons name="checkmark-outline" size={16} color={COLORS.textInverse} />
+              <Text style={styles.submitBtnText}>CONFIRMAR</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* List */}
-        <Text style={styles.sectionTitle}>Gastos recientes</Text>
+        <Text style={styles.sectionTitle}>
+          <Ionicons name="time-outline" size={12} color={COLORS.primary} /> GASTOS RECIENTES
+        </Text>
         {expenses.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="wallet-outline" size={36} color={COLORS.textMuted} />
-            <Text style={styles.emptyText}>No hay gastos registrados.</Text>
+            <Ionicons name="wallet-outline" size={42} color={COLORS.textMuted} />
+            <Text style={styles.emptyTitle}>Sin registros</Text>
+            <Text style={styles.emptyText}>No hay gastos registrados aún.</Text>
           </View>
         ) : (
           expenses.slice(0, 20).map(exp => {
             const catInfo = CATEGORIES.find(c => c.key === exp.category);
             return (
               <TouchableOpacity key={exp.id} style={styles.expenseItem} onLongPress={() => handleDelete(exp.id)}>
-                <Text style={styles.expenseEmoji}>{catInfo?.emoji ?? '📦'}</Text>
+                <View style={styles.expenseEmojiWrap}>
+                  <Text style={styles.expenseEmoji}>{catInfo?.emoji ?? '📦'}</Text>
+                </View>
                 <View style={styles.expenseInfo}>
                   <Text style={styles.expenseTitle}>{exp.title}</Text>
                   <Text style={styles.expenseDate}>
@@ -170,30 +191,142 @@ export default function ExpensesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: SPACING.lg, gap: SPACING.md },
-  title: { fontSize: TYPOGRAPHY.xxl, fontWeight: '700', color: COLORS.textPrimary, paddingTop: SPACING.md },
-  subtitle: { fontSize: TYPOGRAPHY.sm, color: COLORS.textMuted },
+
+  appLabel: {
+    fontSize: TYPOGRAPHY.xs,
+    color: COLORS.primary,
+    fontWeight: '800',
+    letterSpacing: 3,
+  },
+  title: { fontSize: TYPOGRAPHY.xxl, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
+  subtitle: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary },
+
   statsRow: { flexDirection: 'row', gap: SPACING.sm },
-  statCard: { flex: 1, backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: SPACING.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, gap: 4 },
-  statCardAccent: { backgroundColor: COLORS.primaryDim, borderColor: COLORS.primary },
-  statNumber: { fontSize: TYPOGRAPHY.xl, fontWeight: '700', color: COLORS.textPrimary },
-  statLabel: { fontSize: TYPOGRAPHY.xs, color: COLORS.textSecondary },
-  addButton: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  addButtonText: { color: COLORS.background, fontWeight: '600', fontSize: TYPOGRAPHY.md },
-  formCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, padding: SPACING.md, gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border },
-  input: { backgroundColor: COLORS.surfaceHigh, borderRadius: RADIUS.sm, padding: 10, color: COLORS.textPrimary, fontSize: TYPOGRAPHY.md, borderWidth: 1, borderColor: COLORS.border },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 4,
+  },
+  statCardPrimary: {
+    backgroundColor: COLORS.primaryDim,
+    borderColor: `${COLORS.primary}40`,
+  },
+  statNumber: { fontSize: TYPOGRAPHY.xl, fontWeight: '800', color: COLORS.textPrimary },
+  statLabel: {
+    fontSize: 8,
+    color: COLORS.textMuted,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+
+  addButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    ...SHADOWS.glowCyan,
+  },
+  addButtonText: {
+    color: COLORS.textInverse,
+    fontWeight: '700',
+    fontSize: TYPOGRAPHY.sm,
+    letterSpacing: 1,
+  },
+
+  formCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderGlow,
+    ...SHADOWS.glowCyan,
+  },
+  input: {
+    backgroundColor: COLORS.surfaceBright,
+    borderRadius: RADIUS.sm,
+    padding: 12,
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
   categoriesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  categoryChip: { width: 38, height: 38, borderRadius: 19, backgroundColor: COLORS.surfaceHigh, borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
-  categoryChipActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryDim },
+  categoryChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceBright,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryChipActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryDim,
+    ...SHADOWS.glowCyan,
+  },
   categoryEmoji: { fontSize: 18 },
-  submitBtn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, padding: 12, alignItems: 'center' },
-  submitBtnText: { color: COLORS.background, fontWeight: '600', fontSize: TYPOGRAPHY.md },
-  sectionTitle: { fontSize: TYPOGRAPHY.sm, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: SPACING.md },
-  emptyState: { alignItems: 'center', padding: SPACING.xxxl, gap: SPACING.md },
+  submitBtn: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: RADIUS.sm,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    ...SHADOWS.glowGreen,
+  },
+  submitBtnText: {
+    color: COLORS.textInverse,
+    fontWeight: '700',
+    fontSize: TYPOGRAPHY.sm,
+    letterSpacing: 1,
+  },
+
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.xs,
+    fontWeight: '800',
+    color: COLORS.textSecondary,
+    letterSpacing: 1.5,
+    marginTop: SPACING.md,
+  },
+
+  emptyState: { alignItems: 'center', padding: SPACING.huge, gap: SPACING.md },
+  emptyTitle: { fontSize: TYPOGRAPHY.xl, fontWeight: '700', color: COLORS.textPrimary },
   emptyText: { fontSize: TYPOGRAPHY.md, color: COLORS.textMuted },
-  expenseItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  expenseEmoji: { fontSize: 20 },
+
+  expenseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  expenseEmojiWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.surfaceBright,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expenseEmoji: { fontSize: 18 },
   expenseInfo: { flex: 1 },
   expenseTitle: { fontSize: TYPOGRAPHY.md, fontWeight: '600', color: COLORS.textPrimary },
   expenseDate: { fontSize: TYPOGRAPHY.xs, color: COLORS.textMuted, marginTop: 2 },
-  expenseAmount: { fontSize: TYPOGRAPHY.md, fontWeight: '700', color: COLORS.primary },
+  expenseAmount: { fontSize: TYPOGRAPHY.md, fontWeight: '800', color: COLORS.primary },
 });

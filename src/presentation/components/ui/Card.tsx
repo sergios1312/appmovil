@@ -1,25 +1,41 @@
 /**
  * @file Card.tsx
- * @layer presentation/components/ui
- * @description Componente Card contenedor reutilizable con variantes de elevación.
+ * @description Panel/contenedor estilo HUD – Quest UI.
+ * Inspirado en paneles cyberpunk con bordes sutiles y glow opcional.
  */
 
-import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import { COLORS, SPACING, RADIUS } from '@/utils/constants';
+import { View, StyleSheet, type ViewStyle } from 'react-native';
+import { COLORS, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 
-type CardVariant = 'default' | 'elevated' | 'outlined';
+type CardVariant = 'default' | 'glow' | 'accent' | 'danger' | 'success';
 
 interface CardProps {
   children: React.ReactNode;
   variant?: CardVariant;
-  padding?: keyof typeof SPACING;
   style?: ViewStyle;
+  noPadding?: boolean;
 }
 
-export function Card({ children, variant = 'default', padding = 'md', style }: CardProps) {
+export default function Card({
+  children,
+  variant = 'default',
+  style,
+  noPadding = false,
+}: CardProps) {
   return (
-    <View style={[styles.base, VARIANT_STYLES[variant], { padding: SPACING[padding] }, style]}>
+    <View
+      style={[
+        styles.base,
+        VARIANT_STYLES[variant],
+        noPadding && styles.noPadding,
+        style,
+      ]}
+    >
+      {/* Top accent line for glow variant */}
+      {variant === 'glow' && <View style={styles.topAccent} />}
+      {variant === 'accent' && <View style={[styles.topAccent, { backgroundColor: COLORS.primary }]} />}
+      {variant === 'danger' && <View style={[styles.topAccent, { backgroundColor: COLORS.accent }]} />}
+      {variant === 'success' && <View style={[styles.topAccent, { backgroundColor: COLORS.secondary }]} />}
       {children}
     </View>
   );
@@ -27,29 +43,43 @@ export function Card({ children, variant = 'default', padding = 'md', style }: C
 
 const VARIANT_STYLES: Record<CardVariant, ViewStyle> = {
   default: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
     borderColor: COLORS.border,
   },
-  elevated: {
-    backgroundColor: COLORS.surfaceHigh,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+  glow: {
+    borderColor: COLORS.borderGlow,
+    ...SHADOWS.glowCyan,
   },
-  outlined: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  accent: {
+    borderColor: `${COLORS.primary}40`,
+    backgroundColor: COLORS.primaryDim,
+  },
+  danger: {
+    borderColor: `${COLORS.accent}40`,
+    backgroundColor: COLORS.accentDim,
+  },
+  success: {
+    borderColor: `${COLORS.secondary}40`,
+    backgroundColor: COLORS.secondaryDim,
   },
 };
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    padding: SPACING.lg,
+    overflow: 'hidden',
+  },
+  noPadding: {
+    padding: 0,
+  },
+  topAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: COLORS.borderGlow,
   },
 });

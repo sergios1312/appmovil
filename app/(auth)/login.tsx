@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/presentation/hooks/useAuth';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 
 export default function LoginScreen() {
   const { signIn, isLoading, error, clearError } = useAuth();
@@ -43,10 +43,10 @@ export default function LoginScreen() {
         {/* Logo / Branding */}
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
-            <Text style={styles.logoEmoji}>✅</Text>
+            <Text style={styles.logoEmoji}>⚔️</Text>
           </View>
-          <Text style={styles.appName}>TaskFlow</Text>
-          <Text style={styles.tagline}>Productividad sin límites</Text>
+          <Text style={styles.appName}>QuestList</Text>
+          <Text style={styles.tagline}>Convierte tus tareas en misiones</Text>
         </View>
 
         {/* Features preview */}
@@ -88,10 +88,10 @@ export default function LoginScreen() {
 }
 
 const FEATURES = [
+  { icon: '🗡️', text: 'Misiones con XP y niveles' },
   { icon: '📅', text: 'Sincronizado con Google Calendar' },
-  { icon: '✔️', text: 'Gestión de tareas con Google Tasks' },
-  { icon: '📶', text: 'Funciona sin conexión a internet' },
-  { icon: '🔀', text: 'Subtareas organizadas jerárquicamente' },
+  { icon: '⚡', text: 'Progresión semanal y logros' },
+  { icon: '🔀', text: 'Sub-misiones organizadas' },
 ];
 
 const styles = StyleSheet.create({
@@ -126,10 +126,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderGlow,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.sm,
+    ...SHADOWS.glowCyan,
   },
   logoEmoji: {
     fontSize: 40,
@@ -152,6 +153,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
+    ...SHADOWS.card,
   },
   featureRow: {
     flexDirection: 'row',
@@ -177,11 +179,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.lg,
     borderRadius: RADIUS.md,
     gap: SPACING.md,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    ...SHADOWS.glowCyan,
   },
   buttonDisabled: {
     opacity: 0.6,

@@ -5,6 +5,7 @@ import { View } from 'react-native';
 
 import { initializeNotifications } from '@/infrastructure/services/notifications';
 import { useAuthStore } from '@/presentation/store/authStore';
+import { COLORS } from '@/utils/constants';
 
 export default function RootLayout() {
   const segments = useSegments();
@@ -37,16 +38,24 @@ export default function RootLayout() {
   }, [accessToken, segments, navigationState?.key]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <StatusBar style="auto" />
-      <Stack screenOptions={{ headerShown: false }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: COLORS.background },
+          headerStyle: { backgroundColor: COLORS.surface },
+          headerTintColor: COLORS.textPrimary,
+          headerTitleStyle: { fontWeight: '700' },
+        }}
+      >
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="task/[id]"
           options={{
             headerShown: true,
-            title: 'Detalle de tarea',
+            title: 'Detalle de Misión',
           }}
         />
       </Stack>

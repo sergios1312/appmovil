@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fetchPrimaryCalendarEvents } from '@/infrastructure/services/googleCalendar';
 import { fetchGoogleProfile, signInWithGoogle } from '@/infrastructure/services/googleAuth';
 import { useAuthStore } from '@/presentation/store/authStore';
 import type { CalendarEvent } from '@/core/types/calendar';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 
 export default function CalendarScreen() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -71,117 +74,211 @@ export default function CalendarScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Google Calendar</Text>
-      <Text style={styles.subtitle}>Conexión OAuth + lectura de eventos del calendario primario.</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.appLabel}>INTEL</Text>
+        <Text style={styles.title}>Calendario</Text>
+        <Text style={styles.subtitle}>Eventos sincronizados con Google Calendar</Text>
 
-      {!isAuthenticated ? (
-        <Pressable
-          onPress={handleSignIn}
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>Iniciar sesión con Google</Text>
-        </Pressable>
-      ) : (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{user?.name ?? 'Usuario autenticado'}</Text>
-          <Text style={styles.cardText}>{user?.email ?? 'Sin correo'}</Text>
-          <Pressable onPress={handleSignOut} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Cerrar sesión</Text>
+        {!isAuthenticated ? (
+          <Pressable onPress={handleSignIn} style={styles.connectButton}>
+            <Ionicons name="logo-google" size={18} color={COLORS.textInverse} />
+            <Text style={styles.connectButtonText}>Conectar con Google</Text>
           </Pressable>
-        </View>
-      )}
-
-      {isAuthenticated && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Próximos eventos</Text>
-          {isLoading ? (
-            <Text style={styles.cardText}>Cargando eventos...</Text>
-          ) : events.length === 0 ? (
-            <Text style={styles.cardText}>No hay eventos próximos.</Text>
-          ) : (
-            events.map((event) => (
-              <View key={event.id} style={styles.eventRow}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.cardText}>{new Date(event.startDate).toLocaleString()}</Text>
+        ) : (
+          <View style={styles.profileCard}>
+            <View style={styles.profileRow}>
+              <View style={styles.profileAvatar}>
+                <Ionicons name="person" size={18} color={COLORS.primary} />
               </View>
-            ))
-          )}
-        </View>
-      )}
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{user?.name ?? 'Usuario autenticado'}</Text>
+                <Text style={styles.profileEmail}>{user?.email ?? 'Sin correo'}</Text>
+              </View>
+            </View>
+            <Pressable onPress={handleSignOut} style={styles.signOutBtn}>
+              <Ionicons name="log-out-outline" size={14} color={COLORS.accent} />
+              <Text style={styles.signOutText}>Desconectar</Text>
+            </Pressable>
+          </View>
+        )}
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-    </ScrollView>
+        {isAuthenticated && (
+          <View style={styles.eventsCard}>
+            <View style={styles.eventsHeader}>
+              <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
+              <Text style={styles.eventsTitle}>Próximos eventos</Text>
+              <Text style={styles.eventsCount}>{events.length}</Text>
+            </View>
+            {isLoading ? (
+              <Text style={styles.loadingText}>Cargando eventos...</Text>
+            ) : events.length === 0 ? (
+              <View style={styles.emptyEvents}>
+                <Ionicons name="calendar-clear-outline" size={36} color={COLORS.textMuted} />
+                <Text style={styles.emptyText}>No hay eventos próximos.</Text>
+              </View>
+            ) : (
+              events.map((event) => (
+                <View key={event.id} style={styles.eventRow}>
+                  <View style={styles.eventDot} />
+                  <View style={styles.eventInfo}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    <Text style={styles.eventDate}>
+                      {new Date(event.startDate).toLocaleString('es', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {error ? (
+          <View style={styles.errorCard}>
+            <Ionicons name="warning-outline" size={16} color={COLORS.accent} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    gap: 12,
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: SPACING.lg, gap: SPACING.md },
+
+  appLabel: {
+    fontSize: TYPOGRAPHY.xs,
+    color: COLORS.primary,
+    fontWeight: '800',
+    letterSpacing: 3,
   },
-  title: {
-    fontSize: 24,
+  title: { fontSize: TYPOGRAPHY.xxl, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
+  subtitle: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary },
+
+  connectButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    ...SHADOWS.glowCyan,
+  },
+  connectButtonText: {
+    color: COLORS.textInverse,
     fontWeight: '700',
+    fontSize: TYPOGRAPHY.md,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#555',
-  },
-  button: {
-    backgroundColor: '#111',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  card: {
+
+  profileCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
+    borderColor: COLORS.border,
+    gap: SPACING.md,
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  profileAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primaryDim,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}40`,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cardText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  secondaryButton: {
+  profileInfo: { flex: 1 },
+  profileName: { fontSize: TYPOGRAPHY.md, fontWeight: '600', color: COLORS.textPrimary },
+  profileEmail: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary },
+  signOutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: `${COLORS.accent}40`,
+    backgroundColor: COLORS.accentDim,
   },
-  secondaryButtonText: {
-    color: '#333',
-    fontSize: 12,
-    fontWeight: '600',
+  signOutText: {
+    color: COLORS.accent,
+    fontSize: TYPOGRAPHY.sm,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
+
+  eventsCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: SPACING.sm,
+  },
+  eventsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  eventsTitle: { fontSize: TYPOGRAPHY.md, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
+  eventsCount: {
+    fontSize: TYPOGRAPHY.sm,
+    fontWeight: '800',
+    color: COLORS.primary,
+    backgroundColor: COLORS.primaryDim,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+  },
+  loadingText: { color: COLORS.textSecondary, fontSize: TYPOGRAPHY.sm },
+  emptyEvents: { alignItems: 'center', padding: SPACING.xl, gap: SPACING.sm },
+  emptyText: { color: COLORS.textMuted, fontSize: TYPOGRAPHY.md },
   eventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.sm,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 8,
-    gap: 2,
+    borderTopColor: COLORS.border,
   },
-  eventTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+  eventDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.primary,
   },
-  errorText: {
-    color: '#a00',
-    fontSize: 13,
+  eventInfo: { flex: 1 },
+  eventTitle: { fontSize: TYPOGRAPHY.md, fontWeight: '600', color: COLORS.textPrimary },
+  eventDate: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary, marginTop: 2 },
+
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.accentDim,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: `${COLORS.accent}40`,
   },
+  errorText: { color: COLORS.accent, fontSize: TYPOGRAPHY.sm, flex: 1 },
 });

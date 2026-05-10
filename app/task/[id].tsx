@@ -1,7 +1,16 @@
 import { Link, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useTaskStore } from '@/presentation/store/taskStore';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
+
+const PRIORITY_CONFIG: Record<string, { color: string; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = {
+  low:    { color: COLORS.priorityLow,    label: 'Fácil',   icon: 'shield-outline' },
+  medium: { color: COLORS.priorityMedium, label: 'Media',   icon: 'shield-half-outline' },
+  high:   { color: COLORS.priorityHigh,   label: 'Difícil', icon: 'shield' },
+  urgent: { color: COLORS.priorityUrgent, label: 'Crítica', icon: 'flame' },
+};
 
 export default function TaskDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
@@ -15,27 +24,35 @@ export default function TaskDetailScreen() {
 
   if (!taskId) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Ruta inválida: falta el id de tarea.</Text>
+      <View style={[styles.container, styles.centered]}>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.accent} />
+        <Text style={styles.errorText}>Ruta inválida: falta el id de misión.</Text>
       </View>
     );
   }
 
   if (!task) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>No se encontró la tarea solicitada.</Text>
+      <View style={[styles.container, styles.centered]}>
+        <Ionicons name="search-outline" size={48} color={COLORS.textMuted} />
+        <Text style={styles.errorText}>No se encontró la misión solicitada.</Text>
       </View>
     );
   }
 
   const subtasks = getSubtasks(taskId);
+  const priority = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.medium;
+  const isCompleted = task.status === 'completed';
+  const xp = (task.weight || 3) * 10;
 
   const handleAddSubtask = async () => {
     await addTask({
-      title: `Subtarea de ${task.title}`,
+      title: `Sub-misión de ${task.title}`,
       status: 'pending',
       priority: 'medium',
+      task_type: 'single',
+      weight: 3,
+      hide_from_calendar: false,
       due_date: undefined,
       parent_id: taskId,
       is_synced: false,
@@ -44,42 +61,87 @@ export default function TaskDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>{task.title}</Text>
-        <View style={[styles.badge, task.status === 'completed' && styles.badgeCompleted]}>
-          <Text style={styles.statusText}>{task.status}</Text>
+        <View style={[styles.statusBadge, isCompleted && styles.statusBadgeCompleted]}>
+          <Ionicons
+            name={isCompleted ? 'checkmark-circle' : 'time-outline'}
+            size={12}
+            color={isCompleted ? COLORS.success : COLORS.warning}
+          />
+          <Text style={[styles.statusText, isCompleted && styles.statusTextCompleted]}>
+            {isCompleted ? 'Completada' : task.status}
+          </Text>
         </View>
       </View>
 
+      {/* Info Card */}
       <View style={styles.infoCard}>
-        <Text style={styles.meta}>ID: {task.id}</Text>
-        <Text style={styles.meta}>Prioridad: {task.priority}</Text>
-        <Text style={styles.meta}>Vence: {task.due_date ?? 'Sin fecha'}</Text>
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <Ionicons name={priority.icon} size={16} color={priority.color} />
+            <Text style={[styles.infoLabel, { color: priority.color }]}>{priority.label}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Ionicons name="flash-outline" size={16} color={COLORS.gold} />
+            <Text style={[styles.infoLabel, { color: COLORS.gold }]}>+{xp} XP</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Ionicons name="calendar-outline" size={16} color={COLORS.textSecondary} />
+            <Text style={styles.infoValue}>
+              {task.due_date
+                ? new Date(task.due_date).toLocaleDateString('es', { day: 'numeric', month: 'short' })
+                : 'Sin fecha'}
+            </Text>
+          </View>
+        </View>
       </View>
 
+      {/* Add subtask */}
       <Pressable onPress={handleAddSubtask} style={styles.addButton}>
-        <Text style={styles.addButtonText}>+ Agregar subtarea</Text>
+        <Ionicons name="add-circle-outline" size={18} color={COLORS.textInverse} />
+        <Text style={styles.addButtonText}>AGREGAR SUB-MISIÓN</Text>
       </Pressable>
 
-      <Text style={styles.sectionTitle}>Subtareas ({subtasks.length})</Text>
+      {/* Subtasks section */}
+      <Text style={styles.sectionTitle}>
+        <Ionicons name="git-branch-outline" size={14} color={COLORS.primary} />{' '}
+        SUB-MISIONES ({subtasks.length})
+      </Text>
 
       {subtasks.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Esta tarea no tiene subtareas.</Text>
+          <Ionicons name="layers-outline" size={36} color={COLORS.textMuted} />
+          <Text style={styles.emptyText}>Sin sub-misiones asignadas.</Text>
         </View>
       ) : (
-        subtasks.map((subtask) => (
-          <Link
-            key={subtask.id}
-            href={{ pathname: '/task/[id]', params: { id: subtask.id } }}
-            asChild
-          >
-            <Pressable style={styles.taskCard}>
-              <Text style={styles.taskTitle}>{subtask.title}</Text>
-              <Text style={styles.subtaskMeta}>Estado: {subtask.status}</Text>
-            </Pressable>
-          </Link>
-        ))
+        subtasks.map((subtask) => {
+          const subCompleted = subtask.status === 'completed';
+          return (
+            <Link
+              key={subtask.id}
+              href={{ pathname: '/task/[id]', params: { id: subtask.id } }}
+              asChild
+            >
+              <Pressable style={[styles.subtaskCard, subCompleted && styles.subtaskCardCompleted]}>
+                <View style={[styles.subtaskDot, { borderColor: subCompleted ? COLORS.success : COLORS.textMuted }]}>
+                  {subCompleted && <Ionicons name="checkmark" size={10} color={COLORS.success} />}
+                </View>
+                <View style={styles.subtaskInfo}>
+                  <Text style={[styles.subtaskTitle, subCompleted && styles.subtaskTitleCompleted]}>
+                    {subtask.title}
+                  </Text>
+                  <Text style={styles.subtaskMeta}>
+                    {subCompleted ? '✅ Completada' : `⏳ ${subtask.status}`}
+                    {' · ⚡ '}{((subtask.weight || 3) * 10)} XP
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+              </Pressable>
+            </Link>
+          );
+        })
       )}
     </ScrollView>
   );
@@ -87,106 +149,168 @@ export default function TaskDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    gap: 16,
-    backgroundColor: '#fff',
+    padding: SPACING.lg,
+    gap: SPACING.md,
+    backgroundColor: COLORS.background,
     minHeight: '100%',
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: SPACING.huge,
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: SPACING.md,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111',
+    fontSize: TYPOGRAPHY.xxxl,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
     flex: 1,
+    letterSpacing: -0.5,
   },
-  badge: {
-    backgroundColor: '#f3f4f6',
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: `${COLORS.warning}18`,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 5,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: `${COLORS.warning}40`,
   },
-  badgeCompleted: {
-    backgroundColor: '#d1fae5',
+  statusBadgeCompleted: {
+    backgroundColor: COLORS.secondaryDim,
+    borderColor: `${COLORS.success}40`,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: TYPOGRAPHY.xs,
     fontWeight: '700',
-    color: '#374151',
+    color: COLORS.warning,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
+  statusTextCompleted: {
+    color: COLORS.success,
+  },
+
+  // Info card
   infoCard: {
-    backgroundColor: '#f9fafb',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: '#f3f4f6',
+    borderColor: COLORS.border,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  infoItem: {
+    alignItems: 'center',
     gap: 4,
   },
-  sectionTitle: {
-    fontSize: 20,
+  infoLabel: {
+    fontSize: TYPOGRAPHY.sm,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  infoValue: {
+    fontSize: TYPOGRAPHY.sm,
+    color: COLORS.textSecondary,
     fontWeight: '600',
-    marginTop: 10,
-    color: '#111',
   },
-  meta: {
-    color: '#6b7280',
-    fontSize: 14,
+
+  // Section
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.xs,
+    fontWeight: '800',
+    color: COLORS.textSecondary,
+    letterSpacing: 1.5,
+    marginTop: SPACING.sm,
   },
-  subtaskMeta: {
-    color: '#9ca3af',
-    fontSize: 12,
-  },
+
+  // Add button
   addButton: {
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    ...SHADOWS.glowCyan,
   },
   addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
+    color: COLORS.textInverse,
+    fontWeight: '700',
+    fontSize: TYPOGRAPHY.sm,
+    letterSpacing: 1,
   },
-  taskCard: {
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-    borderRadius: 12,
-    padding: 16,
-    gap: 4,
-    backgroundColor: '#fff',
-  },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  emptyContainer: {
-    padding: 20,
+
+  // Subtask card
+  subtaskCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderStyle: 'dashed',
+    gap: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  subtaskCardCompleted: {
+    opacity: 0.6,
+    borderColor: `${COLORS.success}30`,
+  },
+  subtaskDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subtaskInfo: { flex: 1, gap: 2 },
+  subtaskTitle: {
+    fontSize: TYPOGRAPHY.md,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  subtaskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: COLORS.textMuted,
+  },
+  subtaskMeta: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.xs,
+  },
+
+  // Empty
+  emptyContainer: {
+    padding: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
   },
   emptyText: {
-    color: '#9ca3af',
-    fontSize: 14,
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.md,
   },
   errorText: {
-    color: '#ef4444',
-    fontSize: 16,
+    color: COLORS.accent,
+    fontSize: TYPOGRAPHY.lg,
     textAlign: 'center',
-    marginTop: 40,
+    marginTop: SPACING.md,
   },
 });

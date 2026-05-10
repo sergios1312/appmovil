@@ -22,7 +22,7 @@ const PRIORITY_CONFIG: Record<TaskPriority, { color: string; label: string; dot:
   low:    { color: COLORS.priorityLow,    label: 'Baja',    dot: '🔵' },
   medium: { color: COLORS.priorityMedium, label: 'Media',   dot: '🟡' },
   high:   { color: COLORS.priorityHigh,   label: 'Alta',    dot: '🟠' },
-  urgent: { color: COLORS.urgent,         label: 'Urgente', dot: '🔴' },
+  urgent: { color: COLORS.priorityUrgent, label: 'Urgente', dot: '🔴' },
 };
 
 export function TaskCard({ task, onPress, onToggleComplete }: TaskCardProps) {

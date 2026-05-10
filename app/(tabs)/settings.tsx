@@ -1,6 +1,6 @@
 /**
- * @file (tabs)/settings.tsx → Tab "Ajustes"
- * @description Pantalla de ajustes con info del usuario y opciones de cuenta.
+ * @file (tabs)/settings.tsx → Tab "Perfil"
+ * @description Pantalla de perfil y ajustes – Estilo Quest UI.
  */
 
 import React from 'react';
@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/presentation/hooks/useAuth';
 import { useTaskStore } from '@/presentation/store/taskStore';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 
 interface SettingItem {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -41,7 +41,7 @@ export default function SettingsScreen() {
       return;
     }
     await syncWithGoogle();
-    Alert.alert('Sincronización', 'Tareas sincronizadas con éxito.');
+    Alert.alert('Sincronización', 'Misiones sincronizadas con éxito.');
   };
 
   const SETTINGS: SettingItem[] = [
@@ -56,30 +56,40 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Ajustes</Text>
+        <Text style={styles.appLabel}>PERFIL</Text>
+        <Text style={styles.title}>Configuración</Text>
 
-        {/* Perfil del usuario */}
+        {/* Profile Card */}
         {isAuthenticated && user && (
           <View style={styles.profileCard}>
-            {user.avatar_url ? (
-              <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitial}>{user.name[0]?.toUpperCase()}</Text>
+            {/* Avatar */}
+            <View style={styles.avatarContainer}>
+              {user.avatar_url ? (
+                <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarInitial}>{user.name[0]?.toUpperCase()}</Text>
+                </View>
+              )}
+              <View style={styles.avatarGlow} />
+              {/* Level badge */}
+              <View style={styles.avatarLevelBadge}>
+                <Ionicons name="star" size={10} color={COLORS.gold} />
               </View>
-            )}
+            </View>
+
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{user.name}</Text>
               <Text style={styles.profileEmail}>{user.email}</Text>
-              <View style={styles.syncBadge}>
-                <Ionicons name="checkmark-circle" size={12} color={COLORS.success} />
-                <Text style={styles.syncBadgeText}>Google conectado</Text>
+              <View style={styles.statusRow}>
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>En línea · Google conectado</Text>
               </View>
             </View>
           </View>
         )}
 
-        {/* Lista de ajustes */}
+        {/* Settings list */}
         <View style={styles.settingsGroup}>
           {SETTINGS.map((item, i) => (
             <TouchableOpacity
@@ -90,11 +100,16 @@ export default function SettingsScreen() {
               activeOpacity={item.onPress ? 0.7 : 1}
             >
               <View style={styles.settingLeft}>
-                <Ionicons
-                  name={item.icon}
-                  size={20}
-                  color={item.danger ? COLORS.danger : COLORS.textSecondary}
-                />
+                <View style={[
+                  styles.settingIconWrap,
+                  item.danger && styles.settingIconWrapDanger,
+                ]}>
+                  <Ionicons
+                    name={item.icon}
+                    size={16}
+                    color={item.danger ? COLORS.accent : COLORS.primary}
+                  />
+                </View>
                 <Text style={[styles.settingLabel, item.danger && styles.settingLabelDanger]}>
                   {item.label}
                 </Text>
@@ -103,10 +118,16 @@ export default function SettingsScreen() {
                 <Text style={styles.settingValue}>{item.value}</Text>
               )}
               {item.onPress && !item.danger && (
-                <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
               )}
             </TouchableOpacity>
           ))}
+        </View>
+
+        {/* App info */}
+        <View style={styles.appInfo}>
+          <Text style={styles.appInfoText}>QUESTLIST v1.0.0</Text>
+          <Text style={styles.appInfoSubtext}>Sistema de misiones personales</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -116,32 +137,81 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: SPACING.lg, gap: SPACING.lg },
-  title: { fontSize: TYPOGRAPHY.xxl, fontWeight: '700', color: COLORS.textPrimary, paddingTop: SPACING.md },
+
+  appLabel: {
+    fontSize: TYPOGRAPHY.xs,
+    color: COLORS.primary,
+    fontWeight: '800',
+    letterSpacing: 3,
+  },
+  title: { fontSize: TYPOGRAPHY.xxl, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
+
+  // Profile
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: SPACING.lg,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderGlow,
+    ...SHADOWS.glowCyan,
   },
-  avatar: { width: 52, height: 52, borderRadius: 26 },
+  avatarContainer: {
+    position: 'relative',
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
   avatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: COLORS.primary,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: COLORS.primaryDim,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarInitial: { fontSize: TYPOGRAPHY.xl, fontWeight: '700', color: COLORS.background },
+  avatarInitial: { fontSize: TYPOGRAPHY.xl, fontWeight: '800', color: COLORS.primary },
+  avatarGlow: {
+    position: 'absolute',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}30`,
+  },
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: COLORS.goldDim,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   profileInfo: { flex: 1, gap: 2 },
-  profileName: { fontSize: TYPOGRAPHY.lg, fontWeight: '600', color: COLORS.textPrimary },
+  profileName: { fontSize: TYPOGRAPHY.lg, fontWeight: '700', color: COLORS.textPrimary },
   profileEmail: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary },
-  syncBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  syncBadgeText: { fontSize: TYPOGRAPHY.xs, color: COLORS.success, fontWeight: '500' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.success },
+  statusText: { fontSize: TYPOGRAPHY.xs, color: COLORS.success, fontWeight: '600' },
+
+  // Settings
   settingsGroup: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
@@ -159,7 +229,32 @@ const styles = StyleSheet.create({
   },
   settingRowLast: { borderBottomWidth: 0 },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1 },
-  settingLabel: { fontSize: TYPOGRAPHY.md, color: COLORS.textPrimary },
-  settingLabelDanger: { color: COLORS.danger },
+  settingIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.primaryDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingIconWrapDanger: {
+    backgroundColor: COLORS.accentDim,
+  },
+  settingLabel: { fontSize: TYPOGRAPHY.md, color: COLORS.textPrimary, fontWeight: '500' },
+  settingLabelDanger: { color: COLORS.accent },
   settingValue: { fontSize: TYPOGRAPHY.sm, color: COLORS.textMuted, marginRight: SPACING.xs },
+
+  // Footer
+  appInfo: { alignItems: 'center', paddingTop: SPACING.md },
+  appInfoText: {
+    fontSize: TYPOGRAPHY.xs,
+    color: COLORS.textMuted,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  appInfoSubtext: {
+    fontSize: TYPOGRAPHY.xs,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
 });

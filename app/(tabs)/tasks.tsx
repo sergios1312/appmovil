@@ -1,16 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useTasks } from '@/presentation/hooks/useTasks';
 import TaskItem from '@/presentation/components/TaskItem';
 import { TaskFilter } from '@/presentation/store/taskStore';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 
-const FILTERS: { key: TaskFilter; label: string }[] = [
-  { key: 'all', label: 'Todas' },
-  { key: 'today', label: 'Hoy' },
-  { key: 'pending', label: 'Pendientes' },
-  { key: 'completed', label: 'Completadas' },
+const FILTERS: { key: TaskFilter; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
+  { key: 'all',       label: 'Todas',      icon: 'grid-outline' },
+  { key: 'today',     label: 'Hoy',        icon: 'today-outline' },
+  { key: 'pending',   label: 'Activas',    icon: 'compass-outline' },
+  { key: 'completed', label: 'Completas',  icon: 'trophy-outline' },
 ];
 
 export default function TasksScreen() {
@@ -20,8 +21,9 @@ export default function TasksScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Mis Tareas</Text>
-        <Text style={styles.subtitle}>{filteredTasks.length} tareas</Text>
+        <Text style={styles.appLabel}>MISIONES</Text>
+        <Text style={styles.title}>Tablero de Misiones</Text>
+        <Text style={styles.subtitle}>{filteredTasks.length} misiones en el radar</Text>
       </View>
 
       {/* Filtros */}
@@ -32,6 +34,11 @@ export default function TasksScreen() {
             style={[styles.filterChip, activeFilter === f.key && styles.filterChipActive]}
             onPress={() => setFilter(f.key)}
           >
+            <Ionicons
+              name={f.icon}
+              size={12}
+              color={activeFilter === f.key ? COLORS.textInverse : COLORS.textMuted}
+            />
             <Text style={[styles.filterLabel, activeFilter === f.key && styles.filterLabelActive]}>
               {f.label}
             </Text>
@@ -61,12 +68,13 @@ export default function TasksScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📋</Text>
+            <Ionicons name="planet-outline" size={52} color={COLORS.textMuted} />
+            <Text style={styles.emptyTitle}>Zona despejada</Text>
             <Text style={styles.emptyText}>
-              No hay tareas{' '}
+              No hay misiones{' '}
               {activeFilter !== 'all'
                 ? `en "${FILTERS.find((f) => f.key === activeFilter)?.label}"`
-                : ''}
+                : 'disponibles'}
             </Text>
           </View>
         }
@@ -82,16 +90,27 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.sm,
   },
-  title: { fontSize: TYPOGRAPHY.xxl, fontWeight: '700', color: COLORS.textPrimary },
+  appLabel: {
+    fontSize: TYPOGRAPHY.xs,
+    color: COLORS.primary,
+    fontWeight: '800',
+    letterSpacing: 3,
+    marginBottom: 4,
+  },
+  title: { fontSize: TYPOGRAPHY.xxl, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
   subtitle: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary, marginTop: 2 },
+
   filtersRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
-    flexWrap: 'wrap',
+    marginTop: SPACING.sm,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.full,
@@ -99,11 +118,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  filterChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterLabel: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary, fontWeight: '500' },
-  filterLabelActive: { color: COLORS.background, fontWeight: '600' },
-  listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxxl },
-  emptyContainer: { alignItems: 'center', paddingTop: SPACING.xxxl, gap: SPACING.md },
-  emptyIcon: { fontSize: 48 },
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    ...SHADOWS.glowCyan,
+  },
+  filterLabel: {
+    fontSize: TYPOGRAPHY.xs,
+    color: COLORS.textMuted,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  filterLabelActive: {
+    color: COLORS.textInverse,
+  },
+  listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.huge },
+
+  emptyContainer: { alignItems: 'center', paddingTop: SPACING.huge, gap: SPACING.md },
+  emptyTitle: { fontSize: TYPOGRAPHY.xl, fontWeight: '700', color: COLORS.textPrimary },
   emptyText: { fontSize: TYPOGRAPHY.md, color: COLORS.textMuted, textAlign: 'center' },
 });

@@ -1,95 +1,84 @@
 /**
  * @file Button.tsx
- * @layer presentation/components/ui
- * @description Componente Button reutilizable con variantes y estados.
+ * @description Botón reutilizable estilo Quest UI con variantes neón.
+ * Variantes: primary (cyan), secondary (outlined), danger (red), success (green), gold.
  */
 
-import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle,
-} from 'react-native';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/utils/constants';
+import { Pressable, StyleSheet, Text, View, type ViewStyle, type TextStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'gold' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
-  label: string;
+  title: string;
   onPress: () => void;
   variant?: ButtonVariant;
   size?: ButtonSize;
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
+  iconRight?: React.ComponentProps<typeof Ionicons>['name'];
   disabled?: boolean;
-  loading?: boolean;
   fullWidth?: boolean;
-  leftIcon?: React.ReactNode;
 }
 
-const VARIANT_STYLES: Record<ButtonVariant, { container: ViewStyle; text: TextStyle }> = {
-  primary: {
-    container: { backgroundColor: COLORS.primary, borderWidth: 0 },
-    text: { color: COLORS.background },
-  },
-  secondary: {
-    container: { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.primary },
-    text: { color: COLORS.primary },
-  },
-  ghost: {
-    container: { backgroundColor: 'transparent', borderWidth: 0 },
-    text: { color: COLORS.textSecondary },
-  },
-  danger: {
-    container: { backgroundColor: COLORS.danger, borderWidth: 0 },
-    text: { color: COLORS.background },
-  },
+const VARIANT_STYLES: Record<ButtonVariant, { bg: string; text: string; border: string; shadow: ViewStyle }> = {
+  primary:   { bg: COLORS.primary,   text: COLORS.textInverse, border: COLORS.primary,   shadow: SHADOWS.glowCyan },
+  secondary: { bg: 'transparent',    text: COLORS.primary,     border: COLORS.primary,   shadow: {} as ViewStyle },
+  danger:    { bg: COLORS.accent,    text: '#FFFFFF',          border: COLORS.accent,    shadow: SHADOWS.glowRed },
+  success:   { bg: COLORS.secondary, text: COLORS.textInverse, border: COLORS.secondary, shadow: SHADOWS.glowGreen },
+  gold:      { bg: COLORS.gold,      text: COLORS.textInverse, border: COLORS.gold,      shadow: SHADOWS.glowGold },
+  ghost:     { bg: 'transparent',    text: COLORS.textSecondary, border: 'transparent',  shadow: {} as ViewStyle },
 };
 
-const SIZE_STYLES: Record<ButtonSize, { container: ViewStyle; text: TextStyle }> = {
-  sm: { container: { paddingVertical: SPACING.xs, paddingHorizontal: SPACING.md }, text: { fontSize: TYPOGRAPHY.sm } },
-  md: { container: { paddingVertical: SPACING.md, paddingHorizontal: SPACING.lg }, text: { fontSize: TYPOGRAPHY.md } },
-  lg: { container: { paddingVertical: SPACING.lg, paddingHorizontal: SPACING.xl }, text: { fontSize: TYPOGRAPHY.lg } },
+const SIZE_STYLES: Record<ButtonSize, { h: number; px: number; fontSize: number; iconSize: number }> = {
+  sm: { h: 32, px: 12, fontSize: TYPOGRAPHY.sm, iconSize: 14 },
+  md: { h: 42, px: 16, fontSize: TYPOGRAPHY.md, iconSize: 18 },
+  lg: { h: 50, px: 24, fontSize: TYPOGRAPHY.lg, iconSize: 20 },
 };
 
-export function Button({
-  label,
+export default function Button({
+  title,
   onPress,
   variant = 'primary',
   size = 'md',
+  icon,
+  iconRight,
   disabled = false,
-  loading = false,
   fullWidth = false,
-  leftIcon,
 }: ButtonProps) {
-  const variantStyle = VARIANT_STYLES[variant];
-  const sizeStyle = SIZE_STYLES[size];
-  const isDisabled = disabled || loading;
+  const v = VARIANT_STYLES[variant];
+  const s = SIZE_STYLES[size];
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.base,
-        variantStyle.container,
-        sizeStyle.container,
-        fullWidth && styles.fullWidth,
-        isDisabled && styles.disabled,
-      ]}
+    <Pressable
       onPress={onPress}
-      disabled={isDisabled}
-      activeOpacity={0.8}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.base,
+        {
+          backgroundColor: v.bg,
+          borderColor: v.border,
+          height: s.h,
+          paddingHorizontal: s.px,
+          ...(v.shadow as ViewStyle),
+        },
+        fullWidth && styles.fullWidth,
+        disabled && styles.disabled,
+        pressed && styles.pressed,
+      ]}
     >
-      {loading ? (
-        <ActivityIndicator size="small" color={variantStyle.text.color as string} />
-      ) : (
-        <>
-          {leftIcon}
-          <Text style={[styles.label, variantStyle.text, sizeStyle.text]}>{label}</Text>
-        </>
-      )}
-    </TouchableOpacity>
+      {icon && <Ionicons name={icon} size={s.iconSize} color={v.text} />}
+      <Text
+        style={[
+          styles.text,
+          { color: v.text, fontSize: s.fontSize },
+        ]}
+      >
+        {title}
+      </Text>
+      {iconRight && <Ionicons name={iconRight} size={s.iconSize} color={v.text} />}
+    </Pressable>
   );
 }
 
@@ -98,10 +87,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: RADIUS.md,
     gap: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1.5,
   },
-  fullWidth: { width: '100%' },
-  disabled: { opacity: 0.5 },
-  label: { fontWeight: '600' },
+  text: {
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  fullWidth: {
+    width: '100%',
+  },
+  disabled: {
+    opacity: 0.4,
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
+  },
 });
