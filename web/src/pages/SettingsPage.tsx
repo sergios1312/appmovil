@@ -1,0 +1,104 @@
+import { useAuthStore } from '@/store/authStore';
+import { useTaskStore } from '@/store/taskStore';
+import {
+  IoKeyOutline,
+  IoSyncOutline,
+  IoMoonOutline,
+  IoInformationCircleOutline,
+  IoLogOutOutline,
+  IoCheckmarkCircle,
+} from 'react-icons/io5';
+
+export function SettingsPage() {
+  const authStore = useAuthStore();
+  const taskStore = useTaskStore();
+
+  const handleSync = async () => {
+    if (!authStore.accessToken) {
+      alert('Debes estar conectado con Google para sincronizar.');
+      return;
+    }
+    await taskStore.syncWithGoogle();
+    alert('Tareas sincronizadas con exito.');
+  };
+
+  const handleSignOut = () => {
+    if (confirm('Estas seguro de que deseas cerrar sesion?')) {
+      authStore.signOut();
+      window.location.href = '/login';
+    }
+  };
+
+  return (
+    <>
+      <div className="page-header">
+        <h2>Ajustes</h2>
+      </div>
+
+      {authStore.user && (
+        <div className="profile-card">
+          {authStore.user.avatar_url ? (
+            <img src={authStore.user.avatar_url} alt={authStore.user.name} />
+          ) : (
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: 'var(--primary)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 20, color: 'var(--bg)',
+            }}>
+              {authStore.user.name[0]?.toUpperCase()}
+            </div>
+          )}
+          <div className="profile-info">
+            <div className="profile-name">{authStore.user.name}</div>
+            <div className="profile-email">{authStore.user.email}</div>
+            <div className="sync-badge">
+              <IoCheckmarkCircle size={14} /> Google conectado
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="settings-group">
+        <div className="setting-row">
+          <div className="setting-left">
+            <span className="setting-icon"><IoKeyOutline size={18} /></span>
+            <span className="setting-label">Cuenta de Google</span>
+          </div>
+          <span className="setting-value">{authStore.user?.email ?? 'No conectado'}</span>
+        </div>
+
+        <div className="setting-row" onClick={handleSync} style={{ cursor: 'pointer' }}>
+          <div className="setting-left">
+            <span className="setting-icon"><IoSyncOutline size={18} /></span>
+            <span className="setting-label">Sincronizacion</span>
+          </div>
+          <span className="setting-value">{taskStore.isLoading ? 'Sincronizando...' : 'Manual'}</span>
+        </div>
+
+        <div className="setting-row">
+          <div className="setting-left">
+            <span className="setting-icon"><IoMoonOutline size={18} /></span>
+            <span className="setting-label">Tema</span>
+          </div>
+          <span className="setting-value">Oscuro</span>
+        </div>
+
+        <div className="setting-row">
+          <div className="setting-left">
+            <span className="setting-icon"><IoInformationCircleOutline size={18} /></span>
+            <span className="setting-label">Version</span>
+          </div>
+          <span className="setting-value">1.0.0 Web</span>
+        </div>
+
+        <div className="setting-row" onClick={handleSignOut} style={{ cursor: 'pointer' }}>
+          <div className="setting-left">
+            <span className="setting-icon"><IoLogOutOutline size={18} /></span>
+            <span className="setting-label danger">Cerrar sesion</span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
