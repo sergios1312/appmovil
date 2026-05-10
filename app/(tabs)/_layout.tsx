@@ -15,6 +15,7 @@ const TABS: TabConfig[] = [
   { name: 'index', title: 'Inicio', icon: 'home', iconOutline: 'home-outline' },
   { name: 'tasks', title: 'Tareas', icon: 'checkmark-circle', iconOutline: 'checkmark-circle-outline' },
   { name: 'calendar', title: 'Calendario', icon: 'calendar', iconOutline: 'calendar-outline' },
+  { name: 'expenses', title: 'Gastos', icon: 'wallet', iconOutline: 'wallet-outline' },
   { name: 'settings', title: 'Ajustes', icon: 'settings', iconOutline: 'settings-outline' },
 ];
 
@@ -34,7 +35,7 @@ export default function TabsLayout() {
           paddingTop: 4,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600',
         },
       }}

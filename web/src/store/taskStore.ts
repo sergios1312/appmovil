@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import type { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
+import type { Task, CreateTaskDTO, UpdateTaskDTO, TaskType } from '@/core/entities/Task';
 import { taskRepository } from '@/data/WebTaskRepository';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -15,12 +15,14 @@ import {
 } from '@/services/googleTasks';
 
 export type TaskFilter = 'all' | 'today' | 'pending' | 'completed';
+export type TaskTypeFilter = 'all' | 'routine' | 'single' | 'project' | 'habit_group';
 
 interface TaskStore {
   tasks: Task[];
   isLoading: boolean;
   error: string | null;
   activeFilter: TaskFilter;
+  activeTypeFilter: TaskTypeFilter;
   defaultTaskListId: string | null;
 
   loadTasks: () => Promise<void>;
@@ -30,6 +32,7 @@ interface TaskStore {
   toggleComplete: (id: string) => Promise<void>;
   getSubtasks: (parentId: string) => Task[];
   setFilter: (filter: TaskFilter) => void;
+  setTypeFilter: (filter: TaskTypeFilter) => void;
   clearError: () => void;
   syncWithGoogle: () => Promise<void>;
 }
@@ -43,18 +46,37 @@ async function getDefaultTaskListId(accessToken: string): Promise<string | null>
   }
 }
 
+/**
+ * Auto-completes habit_group parents when all children are completed
+ */
+function autoCompleteHabitGroups(tasks: Task[]): Task[] {
+  const updated = [...tasks];
+  const groups = updated.filter(t => t.task_type === 'habit_group' && t.status !== 'completed');
+  for (const group of groups) {
+    const children = updated.filter(t => t.parent_id === group.id);
+    if (children.length > 0 && children.every(c => c.status === 'completed')) {
+      const idx = updated.findIndex(t => t.id === group.id);
+      if (idx !== -1) {
+        updated[idx] = { ...updated[idx], status: 'completed', updated_at: new Date().toISOString() };
+      }
+    }
+  }
+  return updated;
+}
+
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
   isLoading: false,
   error: null,
   activeFilter: 'all',
+  activeTypeFilter: 'all',
   defaultTaskListId: null,
 
   loadTasks: async () => {
     set({ isLoading: true, error: null });
     try {
       const tasks = await taskRepository.getAll(true);
-      set({ tasks, isLoading: false });
+      set({ tasks: autoCompleteHabitGroups(tasks), isLoading: false });
     } catch (err) {
       set({ error: String(err), isLoading: false });
     }
@@ -84,6 +106,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
               due_date: gTask.due_date,
               parent_id: gTask.parent_id,
               priority: 'medium',
+              task_type: 'single',
+              weight: 3,
+              hide_from_calendar: false,
               google_task_id: gTask.id,
               google_tasklist_id: listId!,
               is_synced: true,
@@ -91,7 +116,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           }
         }
         const updatedTasks = await taskRepository.getAll(true);
-        set({ tasks: updatedTasks, isLoading: false });
+        set({ tasks: autoCompleteHabitGroups(updatedTasks), isLoading: false });
       }
     } catch {
       set({ error: 'Error sincronizando con Google Tasks', isLoading: false });
@@ -101,7 +126,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   addTask: async (dto) => {
     try {
       const newTask = await taskRepository.create(dto);
-      set((state) => ({ tasks: [newTask, ...state.tasks] }));
+      set((state) => ({ tasks: autoCompleteHabitGroups([newTask, ...state.tasks]) }));
 
       // Background Google Tasks sync
       const accessToken = useAuthStore.getState().accessToken;
@@ -141,7 +166,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       const updated = await taskRepository.update(dto);
       set((state) => ({
-        tasks: state.tasks.map((t) => (t.id === dto.id ? updated : t)),
+        tasks: autoCompleteHabitGroups(
+          state.tasks.map((t) => (t.id === dto.id ? updated : t))
+        ),
       }));
 
       // Background Google Tasks sync
@@ -184,12 +211,19 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   getSubtasks: (parentId) => get().tasks.filter((t) => t.parent_id === parentId),
   setFilter: (filter) => set({ activeFilter: filter }),
+  setTypeFilter: (filter) => set({ activeTypeFilter: filter }),
   clearError: () => set({ error: null }),
 }));
 
 export const selectFilteredTasks = (state: TaskStore): Task[] => {
-  const rootTasks = state.tasks.filter((t) => !t.parent_id);
+  let rootTasks = state.tasks.filter((t) => !t.parent_id);
   const today = new Date().toISOString().split('T')[0];
+
+  // Apply type filter
+  if (state.activeTypeFilter !== 'all') {
+    rootTasks = rootTasks.filter(t => t.task_type === state.activeTypeFilter);
+  }
+
   switch (state.activeFilter) {
     case 'today':
       return rootTasks.filter((t) => t.due_date?.startsWith(today));
@@ -212,3 +246,65 @@ export const selectTodayStats = (state: TaskStore) => {
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
   return { total, completed, urgent, progress };
 };
+
+/**
+ * Calculates weekly gamification progress based on task weights.
+ */
+export const selectWeeklyProgress = (state: TaskStore) => {
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const weekTasks = state.tasks.filter(t => {
+    const updated = new Date(t.updated_at);
+    return updated >= startOfWeek && t.status === 'completed';
+  });
+
+  const totalWeight = weekTasks.reduce((acc, t) => acc + (t.weight || 3), 0);
+  const totalCompleted = weekTasks.length;
+
+  // Progressive milestones
+  const milestones = [10, 25, 50, 75, 100, 150];
+  const currentMilestone = milestones.find(m => totalWeight < m) ?? milestones[milestones.length - 1];
+  const progress = Math.min(Math.round((totalWeight / currentMilestone) * 100), 100);
+  const remaining = Math.max(currentMilestone - totalWeight, 0);
+
+  return {
+    totalWeight,
+    totalCompleted,
+    currentMilestone,
+    progress,
+    remaining,
+  };
+};
+
+/**
+ * Gets project-type root tasks with progress info.
+ */
+export const selectProjects = (state: TaskStore) => {
+  const projects = state.tasks.filter(t => !t.parent_id && t.task_type === 'project');
+
+  return projects.map(project => {
+    const allDescendants = getDescendants(state.tasks, project.id);
+    const total = allDescendants.length;
+    const completed = allDescendants.filter(t => t.status === 'completed').length;
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    return {
+      ...project,
+      totalSubtasks: total,
+      completedSubtasks: completed,
+      progress,
+    };
+  });
+};
+
+function getDescendants(tasks: Task[], parentId: string): Task[] {
+  const children = tasks.filter(t => t.parent_id === parentId);
+  let all = [...children];
+  for (const child of children) {
+    all = [...all, ...getDescendants(tasks, child.id)];
+  }
+  return all;
+}

@@ -26,6 +26,10 @@ export class TaskRepository implements ITaskRepository {
       parent_id: row.parent_id || null,
       tags: typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags || [],
       is_synced: Boolean(row.is_synced),
+      task_type: row.task_type || 'single',
+      weight: row.weight ?? 3,
+      repeat_days: row.repeat_days ? JSON.parse(row.repeat_days) : undefined,
+      hide_from_calendar: Boolean(row.hide_from_calendar),
     };
   }
 
@@ -75,8 +79,9 @@ export class TaskRepository implements ITaskRepository {
       `INSERT INTO tasks (
         id, parent_id, title, description, status, priority,
         due_date, google_event_id, google_task_id, google_tasklist_id,
-        tags, is_synced, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        tags, is_synced, task_type, weight, repeat_days, hide_from_calendar,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         dto.parent_id || null,
@@ -90,6 +95,10 @@ export class TaskRepository implements ITaskRepository {
         dto.google_tasklist_id || null,
         JSON.stringify(dto.tags || []),
         0,
+        dto.task_type || 'single',
+        dto.weight ?? 3,
+        dto.repeat_days ? JSON.stringify(dto.repeat_days) : null,
+        dto.hide_from_calendar ? 1 : 0,
         now,
         now,
       ]
@@ -118,6 +127,9 @@ export class TaskRepository implements ITaskRepository {
       google_event_id: 'google_event_id',
       google_task_id: 'google_task_id',
       google_tasklist_id: 'google_tasklist_id',
+      task_type: 'task_type',
+      weight: 'weight',
+      hide_from_calendar: 'hide_from_calendar',
     };
 
     for (const [key, dbField] of Object.entries(mappings)) {

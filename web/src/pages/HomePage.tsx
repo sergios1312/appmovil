@@ -1,78 +1,149 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useTaskStore } from '@/store/taskStore';
-import { TaskItem } from '@/components/TaskItem';
-import { CreateTaskForm } from '@/components/CreateTaskForm';
-import { TaskDetailModal } from '@/components/TaskDetailModal';
-import { IoClipboardOutline, IoAdd, IoClose } from 'react-icons/io5';
-import type { Task } from '@/core/entities/Task';
+import { useEffect, useMemo } from 'react';
+import { useTaskStore, selectTodayStats, selectWeeklyProgress, selectProjects } from '@/store/taskStore';
+import {
+  IoTodayOutline,
+  IoCheckmarkCircleOutline,
+  IoListOutline,
+  IoTrophyOutline,
+  IoFlameOutline,
+  IoRocketOutline,
+  IoChevronForward,
+} from 'react-icons/io5';
 
 export function HomePage() {
   const store = useTaskStore();
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const todayStats = useTaskStore(selectTodayStats);
+  const weeklyProgress = useTaskStore(selectWeeklyProgress);
+  const projects = useTaskStore(selectProjects);
 
   const rootTasks = useMemo(() => store.tasks.filter((t) => !t.parent_id), [store.tasks]);
-  const pendingCount = useMemo(() => rootTasks.filter((t) => t.status === 'pending').length, [rootTasks]);
-  const completedCount = useMemo(() => rootTasks.filter((t) => t.status === 'completed').length, [rootTasks]);
+  const pendingToday = todayStats.total - todayStats.completed;
 
   useEffect(() => { store.loadTasks(); }, []);
+
+  // Determine incentive message
+  const getIncentiveMessage = () => {
+    if (weeklyProgress.totalCompleted === 0) return '¡Comienza tu semana completando tu primera tarea!';
+    if (weeklyProgress.progress >= 100) return '🎉 ¡Felicidades! Alcanzaste tu meta semanal.';
+    if (weeklyProgress.remaining <= 10) return `🔥 ¡Casi! Solo ${weeklyProgress.remaining} puntos más para tu logro.`;
+    return `Para alcanzar el logro semanal, acumula ${weeklyProgress.remaining} puntos más.`;
+  };
 
   return (
     <>
       <div className="page-header">
-        <div className="label">TaskFlow</div>
-        <h2>Mis tareas</h2>
+        <div className="label">Dashboard</div>
+        <h2>Inicio</h2>
+        <div className="subtitle">Resumen general de tu vida y proyectos</div>
       </div>
 
-      <div className="stats-row">
-        <div className="stat-card">
-          <div className="number">{pendingCount}</div>
-          <div className="label">Pendientes</div>
+      {/* ─── Estadísticas Generales ─── */}
+      <section className="dashboard-section">
+        <h3 className="section-title">
+          <IoTodayOutline size={18} />
+          Estadísticas del día
+        </h3>
+        <div className="stats-row">
+          <div className="stat-card">
+            <div className="stat-icon" style={{ background: 'var(--warning)' }}>
+              <IoListOutline size={20} color="var(--bg)" />
+            </div>
+            <div className="number">{pendingToday}</div>
+            <div className="label">Pendientes hoy</div>
+          </div>
+          <div className="stat-card accent">
+            <div className="stat-icon" style={{ background: 'var(--success)' }}>
+              <IoCheckmarkCircleOutline size={20} color="var(--bg)" />
+            </div>
+            <div className="number">{todayStats.completed}</div>
+            <div className="label">Completadas hoy</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon" style={{ background: 'var(--primary)' }}>
+              <IoListOutline size={20} color="var(--bg)" />
+            </div>
+            <div className="number">{rootTasks.length}</div>
+            <div className="label">Total de tareas</div>
+          </div>
         </div>
-        <div className="stat-card accent">
-          <div className="number">{completedCount}</div>
-          <div className="label">Completadas</div>
-        </div>
-        <div className="stat-card">
-          <div className="number">{rootTasks.length}</div>
-          <div className="label">Total</div>
-        </div>
-      </div>
+      </section>
 
-      {showCreate && (
-        <CreateTaskForm onClose={() => setShowCreate(false)} />
-      )}
-
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <div className="subtitle">
-          {rootTasks.length === 0 ? 'Sin tareas aun' : `${rootTasks.length} tareas`}
+      {/* ─── Logros y Progresión (Gamificación) ─── */}
+      <section className="dashboard-section">
+        <h3 className="section-title">
+          <IoTrophyOutline size={18} />
+          Logros y progresión
+        </h3>
+        <div className="gamification-card">
+          <div className="gamification-header">
+            <div className="gamification-stats">
+              <span className="gamification-highlight">
+                <IoFlameOutline size={16} />
+                {weeklyProgress.totalCompleted} tareas esta semana
+              </span>
+              <span className="gamification-points">
+                {weeklyProgress.totalWeight} / {weeklyProgress.currentMilestone} pts
+              </span>
+            </div>
+          </div>
+          <div className="progress-bar-container">
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${weeklyProgress.progress}%` }}
+            />
+          </div>
+          <p className="gamification-incentive">
+            {getIncentiveMessage()}
+          </p>
+          <p className="gamification-hint">
+            💡 El progreso se calcula según el peso de cada tarea — las rutinas simples aportan menos que tareas grandes.
+          </p>
         </div>
-      </div>
+      </section>
 
-      {store.isLoading && rootTasks.length === 0 ? (
-        <div className="loading-page" style={{ minHeight: '200px' }}>
-          <div className="spinner" />
-        </div>
-      ) : rootTasks.length === 0 ? (
-        <div className="empty-state">
-          <div className="icon"><IoClipboardOutline size={48} /></div>
-          <h3>Todo limpio</h3>
-          <p>Presiona el boton + para agregar tu primera tarea.</p>
-        </div>
-      ) : (
-        rootTasks.map((task) => (
-          <TaskItem key={task.id} task={task} onClick={setSelectedTask} />
-        ))
-      )}
-
-      <button className="fab" onClick={() => setShowCreate(!showCreate)} title="Nueva tarea">
-        {showCreate ? <IoClose size={24} /> : <IoAdd size={24} />}
-      </button>
-
-      {selectedTask && (
-        <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} />
-      )}
+      {/* ─── Progreso de Proyectos Grandes ─── */}
+      <section className="dashboard-section">
+        <h3 className="section-title">
+          <IoRocketOutline size={18} />
+          Proyectos a largo plazo
+        </h3>
+        {projects.length === 0 ? (
+          <div className="empty-projects-card">
+            <IoRocketOutline size={32} color="var(--text-muted)" />
+            <p>No tienes proyectos aún.</p>
+            <span>Crea un proyecto desde el módulo de Tareas para verlo aquí.</span>
+          </div>
+        ) : (
+          <div className="projects-grid">
+            {projects.map((project) => (
+              <div key={project.id} className="project-card">
+                <div className="project-header">
+                  <span className="project-title">{project.title}</span>
+                  <span className="project-percent">{project.progress}%</span>
+                </div>
+                <div className="progress-bar-container small">
+                  <div
+                    className="progress-bar-fill"
+                    style={{
+                      width: `${project.progress}%`,
+                      background: project.progress >= 100
+                        ? 'var(--success)'
+                        : project.progress >= 50
+                          ? 'var(--warning)'
+                          : 'var(--primary)',
+                    }}
+                  />
+                </div>
+                <div className="project-meta">
+                  <span>{project.completedSubtasks} / {project.totalSubtasks} subtareas</span>
+                  <IoChevronForward size={14} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </>
   );
 }

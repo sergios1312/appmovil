@@ -12,7 +12,7 @@
 import * as SQLite from 'expo-sqlite';
 
 const DB_NAME = 'taskflow.db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -46,6 +46,12 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
     await migrate_v1(database);
     await database.execAsync(`PRAGMA user_version = 1`);
     console.log('[Database] Migración v1 aplicada');
+  }
+
+  if (currentVersion < 2) {
+    await migrate_v2(database);
+    await database.execAsync(`PRAGMA user_version = 2`);
+    console.log('[Database] Migración v2 aplicada');
   }
 
   console.log(`[Database] Schema en versión ${DB_VERSION}`);
@@ -82,6 +88,19 @@ async function migrate_v1(database: SQLite.SQLiteDatabase): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_tasks_status     ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_tasks_due_date   ON tasks(due_date);
     CREATE INDEX IF NOT EXISTS idx_tasks_is_synced  ON tasks(is_synced);
+  `);
+}
+
+/**
+ * Migración v2: Campos para tipos de tarea, gamificación y rutinas
+ */
+async function migrate_v2(database: SQLite.SQLiteDatabase): Promise<void> {
+  await database.execAsync(`
+    ALTER TABLE tasks ADD COLUMN task_type TEXT NOT NULL DEFAULT 'single'
+      CHECK(task_type IN ('routine','single','project','habit_group'));
+    ALTER TABLE tasks ADD COLUMN weight INTEGER NOT NULL DEFAULT 3;
+    ALTER TABLE tasks ADD COLUMN repeat_days TEXT;
+    ALTER TABLE tasks ADD COLUMN hide_from_calendar INTEGER NOT NULL DEFAULT 0;
   `);
 }
 

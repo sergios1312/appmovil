@@ -6,6 +6,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { HomePage } from '@/pages/HomePage';
 import { TasksPage } from '@/pages/TasksPage';
 import { CalendarPage } from '@/pages/CalendarPage';
+import { ExpensesPage } from '@/pages/ExpensesPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { AuthCallback } from '@/pages/AuthCallback';
 import './index.css';
@@ -47,6 +48,7 @@ export default function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/tasks" element={<TasksPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
+                  <Route path="/expenses" element={<ExpensesPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                 </Routes>
               </Layout>

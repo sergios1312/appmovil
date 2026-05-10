@@ -111,6 +111,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
               due_date: gTask.due_date,
               parent_id: gTask.parent_id,
               priority: 'medium',
+              task_type: 'single',
+              weight: 3,
+              hide_from_calendar: false,
               google_task_id: gTask.id,
               google_tasklist_id: listId,
               is_synced: true

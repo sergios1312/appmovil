@@ -13,11 +13,25 @@ function generateId(): string {
   return `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+/**
+ * Migrates old tasks that don't have new fields to include defaults.
+ */
+function migrateTask(t: Record<string, unknown>): Task {
+  return {
+    ...(t as unknown as Task),
+    task_type: (t.task_type as string) ?? 'single',
+    weight: (t.weight as number) ?? 3,
+    hide_from_calendar: (t.hide_from_calendar as boolean) ?? false,
+    repeat_days: (t.repeat_days as number[]) ?? undefined,
+  };
+}
+
 export class WebTaskRepository implements ITaskRepository {
   private getTasks(): Task[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      const tasks = raw ? JSON.parse(raw) : [];
+      return tasks.map(migrateTask);
     } catch {
       return [];
     }
@@ -58,6 +72,9 @@ export class WebTaskRepository implements ITaskRepository {
     const newTask: Task = {
       ...dto,
       id: generateId(),
+      task_type: dto.task_type ?? 'single',
+      weight: dto.weight ?? 3,
+      hide_from_calendar: dto.hide_from_calendar ?? false,
       created_at: now,
       updated_at: now,
     };
