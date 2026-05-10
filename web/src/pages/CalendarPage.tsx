@@ -14,28 +14,28 @@ import {
 import type { CalendarEvent } from '@/core/types/calendar';
 
 export function CalendarPage() {
-  const authStore = useAuthStore();
-  const taskStore = useTaskStore();
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const tasks = useTaskStore((s) => s.tasks);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showRoutines, setShowRoutines] = useState(false);
 
   useEffect(() => {
-    if (!authStore.accessToken) return;
+    if (!accessToken) return;
 
     setLoading(true);
     setError(null);
     const next7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    fetchPrimaryCalendarEvents(authStore.accessToken, { timeMax: next7Days })
+    fetchPrimaryCalendarEvents(accessToken, { timeMax: next7Days })
       .then(setEvents)
       .catch((e) => setError(e instanceof Error ? e.message : 'Error consultando Calendar.'))
       .finally(() => setLoading(false));
-  }, [authStore.accessToken]);
+  }, [accessToken]);
 
   // Tasks with deadlines (filtered to exclude routines by default)
   const deadlineTasks = useMemo(() => {
-    return taskStore.tasks
+    return tasks
       .filter(t => {
         if (!t.due_date) return false;
         if (t.status === 'completed') return false;
@@ -43,7 +43,7 @@ export function CalendarPage() {
         return true;
       })
       .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
-  }, [taskStore.tasks, showRoutines]);
+  }, [tasks, showRoutines]);
 
   // Group events by date
   const groupedEvents = useMemo(() => {
