@@ -1,28 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg: #0F1117;
-  --surface: #1A1D27;
-  --surface-high: #222636;
-  --border: #2A2D3E;
-  --border-light: #353849;
-  --primary: #6C63FF;
-  --primary-dim: #6C63FF30;
-  --primary-glow: #6C63FF50;
-  --text-primary: #F0F0F8;
-  --text-secondary: #8B8FA8;
-  --text-muted: #4E5166;
+  --bg: #0B0E14;
+  --surface: #111827;
+  --surface-high: #1A2332;
+  --surface-bright: #222E3F;
+  --border: #1E2A3A;
+  --border-light: #2A3A4E;
+  --border-glow: #00E5FF40;
+  --primary: #00E5FF;
+  --primary-dark: #00B8D4;
+  --primary-dim: #00E5FF18;
+  --primary-glow: #00E5FF50;
+  --secondary: #4ADE80;
+  --accent: #FF3B3B;
+  --gold: #FFD700;
+  --gold-dim: #FFD70020;
+  --text-primary: #E8ECF4;
+  --text-secondary: #7A8599;
+  --text-muted: #3E4A5C;
+  --text-inverse: #0B0E14;
   --success: #4ADE80;
-  --danger: #F87171;
+  --danger: #FF3B3B;
   --warning: #FBBF24;
+  --info: #60A5FA;
   --priority-low: #60A5FA;
   --priority-medium: #FBBF24;
   --priority-high: #FB923C;
-  --priority-urgent: #F87171;
+  --priority-urgent: #FF3B3B;
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
