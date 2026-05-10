@@ -15,11 +15,11 @@ export function SettingsPage() {
 
   const handleSync = async () => {
     if (!authStore.accessToken) {
-      alert('Debes estar conectado con Google para sincronizar.');
+      alert('Debes iniciar sesión para sincronizar.');
       return;
     }
-    await taskStore.syncWithGoogle();
-    alert('Tareas sincronizadas con exito.');
+    await taskStore.loadTasks();
+    alert('Datos recargados desde Supabase.');
   };
 
   const handleSignOut = () => {
@@ -73,7 +73,7 @@ export function SettingsPage() {
             <span className="setting-icon"><IoSyncOutline size={18} /></span>
             <span className="setting-label">Sincronizacion</span>
           </div>
-          <span className="setting-value">{taskStore.isLoading ? 'Sincronizando...' : 'Manual'}</span>
+          <span className="setting-value">{taskStore.isLoading ? 'Sincronizando...' : 'Tiempo real'}</span>
         </div>
 
         <div className="setting-row">

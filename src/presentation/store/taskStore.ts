@@ -1,18 +1,24 @@
+/**
+ * @file taskStore.ts
+ * @layer presentation/store
+ * @description Store de Zustand para gestión de tareas con Supabase + Realtime.
+ *
+ * MIGRACIÓN: SQLite + Google Tasks → Supabase (PostgreSQL remoto)
+ * - El repositorio ahora es SupabaseTaskRepository
+ * - Realtime: suscripción WebSocket para recibir cambios de la web al instante
+ * - Se eliminó toda la lógica de Google Tasks sync
+ * - Se mantienen notificaciones locales
+ */
+
 import { create } from 'zustand';
 import {
   cancelScheduledNotification,
   scheduleTaskDueNotification,
 } from '@/infrastructure/services/notifications';
 import { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
-import { taskRepository } from '@/data/repositories/TaskRepository';
+import { SupabaseTaskRepository } from '@/data/repositories/SupabaseTaskRepository';
+import { supabase } from '@/infrastructure/database/supabase';
 import { useAuthStore } from '@/presentation/store/authStore';
-import {
-  createGoogleTask,
-  updateGoogleTask,
-  deleteGoogleTask,
-  fetchGoogleTaskLists,
-  fetchGoogleTasks,
-} from '@/infrastructure/services/googleTasks';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -25,7 +31,6 @@ interface TaskStore {
   activeFilter: TaskFilter;
   selectedTaskId: string | null;
   notificationIds: Record<string, string>;
-  defaultTaskListId: string | null;
 
   // Carga
   loadTasks: () => Promise<void>;
@@ -43,22 +48,47 @@ interface TaskStore {
   setFilter: (filter: TaskFilter) => void;
   selectTask: (id: string | null) => void;
   clearError: () => void;
-  syncWithGoogle: () => Promise<void>;
+
+  // Realtime
+  subscribeToRealtime: () => void;
+  unsubscribeFromRealtime: () => void;
 }
 
-// Función auxiliar para obtener/cachear el ID de la lista principal de Google Tasks
-async function getDefaultTaskListId(accessToken: string): Promise<string | null> {
-  try {
-    const lists = await fetchGoogleTaskLists(accessToken);
-    if (lists && lists.length > 0) {
-      return lists[0].id;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error fetching Google Task Lists:', error);
-    return null;
-  }
+/**
+ * Obtiene el repositorio con el userId actual.
+ */
+function getRepo(): SupabaseTaskRepository {
+  const user = useAuthStore.getState().user;
+  if (!user) throw new Error('No hay usuario autenticado');
+  return new SupabaseTaskRepository(user.id);
 }
+
+/**
+ * Mapea un payload de Realtime a la entidad Task.
+ */
+function mapPayloadToTask(row: Record<string, unknown>): Task {
+  return {
+    id: row.id as string,
+    user_id: row.user_id as string,
+    parent_id: (row.parent_id as string) || null,
+    title: row.title as string,
+    description: (row.description as string) ?? undefined,
+    status: (row.status as Task['status']) || 'pending',
+    priority: (row.priority as Task['priority']) || 'medium',
+    task_type: (row.task_type as Task['task_type']) || 'single',
+    due_date: (row.due_date as string) ?? undefined,
+    weight: (row.weight as number) ?? 3,
+    repeat_days: (row.repeat_days as number[]) ?? undefined,
+    hide_from_calendar: (row.hide_from_calendar as boolean) ?? false,
+    tags: (row.tags as string[]) ?? [],
+    is_synced: true,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+  } as Task;
+}
+
+// Referencia al canal de Realtime para poder desuscribirse
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -69,12 +99,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   activeFilter: 'all',
   selectedTaskId: null,
   notificationIds: {},
-  defaultTaskListId: null,
 
   loadTasks: async () => {
     set({ isLoading: true, error: null });
     try {
-      const tasks = await taskRepository.getAll(true);
+      const repo = getRepo();
+      const tasks = await repo.getAll(true);
       set({ tasks, isLoading: false });
     } catch (err) {
       console.error('[TaskStore] loadTasks:', err);
@@ -82,59 +112,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  syncWithGoogle: async () => {
-    const accessToken = useAuthStore.getState().accessToken;
-    if (!accessToken) return;
-
-    set({ isLoading: true, error: null });
-    try {
-      let listId = get().defaultTaskListId;
-      if (!listId) {
-        listId = await getDefaultTaskListId(accessToken);
-        if (listId) set({ defaultTaskListId: listId });
-      }
-
-      if (listId) {
-        const googleTasks = await fetchGoogleTasks(accessToken, listId);
-        
-        // Merge con local: Para cada tarea de Google, si no existe localmente, crearla.
-        // Si existe, actualizarla (priorizando local por ahora para simplicidad)
-        const localTasks = await taskRepository.getAll(true);
-        
-        for (const gTask of googleTasks) {
-          const exists = localTasks.find(t => t.google_task_id === gTask.id);
-          if (!exists) {
-            await taskRepository.create({
-              title: gTask.title,
-              description: gTask.description,
-              status: gTask.status,
-              due_date: gTask.due_date,
-              parent_id: gTask.parent_id,
-              priority: 'medium',
-              task_type: 'single',
-              weight: 3,
-              hide_from_calendar: false,
-              google_task_id: gTask.id,
-              google_tasklist_id: listId,
-              is_synced: true
-            });
-          }
-        }
-        
-        // Recargar todo
-        const updatedTasks = await taskRepository.getAll(true);
-        set({ tasks: updatedTasks, isLoading: false });
-      }
-    } catch (err) {
-      console.error('[TaskStore] syncWithGoogle:', err);
-      set({ error: 'Error sincronizando con Google Tasks', isLoading: false });
-    }
-  },
-
   addTask: async (dto) => {
     try {
-      // 1. Crear localmente primero para UI instantánea
-      const newTask = await taskRepository.create(dto);
+      const repo = getRepo();
+      const newTask = await repo.create(dto);
       set((state) => ({ tasks: [newTask, ...state.tasks] }));
 
       // Notificación local
@@ -144,36 +125,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           set((state) => ({
             notificationIds: { ...state.notificationIds, [newTask.id]: notifId },
           }));
-        }
-      })();
-
-      // 2. Sincronización en segundo plano con Google Tasks
-      void (async () => {
-        const accessToken = useAuthStore.getState().accessToken;
-        if (!accessToken) return;
-
-        let listId = get().defaultTaskListId;
-        if (!listId) {
-          listId = await getDefaultTaskListId(accessToken);
-          if (listId) set({ defaultTaskListId: listId });
-        }
-
-        if (listId) {
-          try {
-            const gTask = await createGoogleTask(accessToken, listId, newTask);
-            // Actualizar la tarea local con el ID de Google
-            const syncedTask = await taskRepository.update({
-              id: newTask.id,
-              google_task_id: gTask.id,
-              google_tasklist_id: listId,
-            });
-            // Actualizar estado en memoria
-            set((state) => ({
-              tasks: state.tasks.map((t) => (t.id === syncedTask.id ? syncedTask : t)),
-            }));
-          } catch (e) {
-            console.error('[GoogleTasks Sync] Error creating task:', e);
-          }
         }
       })();
 
@@ -187,11 +138,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   updateTask: async (dto) => {
     try {
-      const updated = await taskRepository.update(dto);
+      const repo = getRepo();
+      const updated = await repo.update(dto);
       set((state) => ({
         tasks: state.tasks.map((t) => (t.id === dto.id ? updated : t)),
       }));
 
+      // Reprogramar notificación
       void (async () => {
         const currentNotifId = get().notificationIds[dto.id];
         if (currentNotifId) await cancelScheduledNotification(currentNotifId);
@@ -203,23 +156,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           return { notificationIds: next };
         });
       })();
-
-      // Sincronización con Google Tasks en segundo plano
-      void (async () => {
-        const accessToken = useAuthStore.getState().accessToken;
-        if (!accessToken || !updated.google_task_id || !updated.google_tasklist_id) return;
-
-        try {
-          await updateGoogleTask(
-            accessToken,
-            updated.google_tasklist_id,
-            updated.google_task_id,
-            updated
-          );
-        } catch (e) {
-          console.error('[GoogleTasks Sync] Error updating task:', e);
-        }
-      })();
     } catch (err) {
       console.error('[TaskStore] updateTask:', err);
       set({ error: String(err) });
@@ -228,37 +164,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   deleteTask: async (id) => {
     try {
-      const taskToDelete = get().tasks.find((t) => t.id === id);
-      
-      await taskRepository.delete(id);
+      const repo = getRepo();
+      await repo.delete(id);
       set((state) => ({
         tasks: state.tasks.filter((t) => t.id !== id && t.parent_id !== id),
       }));
 
       const notifId = get().notificationIds[id];
       if (notifId) void cancelScheduledNotification(notifId);
-
-      // Sincronización con Google Tasks en segundo plano
-      if (taskToDelete?.google_task_id && taskToDelete?.google_tasklist_id) {
-        // Obtenemos una referencia estable a los IDs para TypeScript
-        const googleTaskId = taskToDelete.google_task_id;
-        const googleTaskListId = taskToDelete.google_tasklist_id;
-        
-        void (async () => {
-          const accessToken = useAuthStore.getState().accessToken;
-          if (!accessToken) return;
-
-          try {
-            await deleteGoogleTask(
-              accessToken,
-              googleTaskListId,
-              googleTaskId
-            );
-          } catch (e) {
-            console.error('[GoogleTasks Sync] Error deleting task:', e);
-          }
-        })();
-      }
     } catch (err) {
       console.error('[TaskStore] deleteTask:', err);
       set({ error: String(err) });
@@ -278,6 +191,63 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setFilter: (filter) => set({ activeFilter: filter }),
   selectTask: (id) => set({ selectedTaskId: id }),
   clearError: () => set({ error: null }),
+
+  // ─── Realtime ──────────────────────────────────────────────────────────────
+
+  subscribeToRealtime: () => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+
+    // Evitar doble suscripción
+    if (realtimeChannel) return;
+
+    realtimeChannel = supabase
+      .channel('tasks-realtime-mobile')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const { eventType } = payload;
+
+          if (eventType === 'INSERT') {
+            const newTask = payload.new as Record<string, unknown>;
+            set((state) => {
+              if (state.tasks.some(t => t.id === newTask.id)) return state;
+              return { tasks: [mapPayloadToTask(newTask), ...state.tasks] };
+            });
+          }
+
+          if (eventType === 'UPDATE') {
+            const updatedTask = payload.new as Record<string, unknown>;
+            set((state) => ({
+              tasks: state.tasks.map((t) =>
+                t.id === updatedTask.id ? mapPayloadToTask(updatedTask) : t
+              ),
+            }));
+          }
+
+          if (eventType === 'DELETE') {
+            const deletedId = (payload.old as Record<string, unknown>).id as string;
+            set((state) => ({
+              tasks: state.tasks.filter((t) => t.id !== deletedId && t.parent_id !== deletedId),
+            }));
+          }
+        }
+      )
+      .subscribe();
+  },
+
+  unsubscribeFromRealtime: () => {
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+  },
 }));
 
 // ─── Selectores derivados ─────────────────────────────────────────────────────

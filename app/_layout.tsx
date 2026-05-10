@@ -5,17 +5,35 @@ import { View } from 'react-native';
 
 import { initializeNotifications } from '@/infrastructure/services/notifications';
 import { useAuthStore } from '@/presentation/store/authStore';
+import { useTaskStore } from '@/presentation/store/taskStore';
 import { COLORS } from '@/utils/constants';
 
 export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
   const accessToken = useAuthStore((state) => state.accessToken);
+  const user = useAuthStore((state) => state.user);
   const navigationState = useRootNavigationState();
+
+  const loadTasks = useTaskStore((s) => s.loadTasks);
+  const subscribeToRealtime = useTaskStore((s) => s.subscribeToRealtime);
+  const unsubscribeFromRealtime = useTaskStore((s) => s.unsubscribeFromRealtime);
 
   useEffect(() => {
     void initializeNotifications();
   }, []);
+
+  // Cargar datos y suscribirse a Realtime cuando el usuario está autenticado
+  useEffect(() => {
+    if (!user) return;
+
+    void loadTasks();
+    subscribeToRealtime();
+
+    return () => {
+      unsubscribeFromRealtime();
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!navigationState?.key) return; // Esperar a que la navegación esté montada

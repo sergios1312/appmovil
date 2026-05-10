@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, AuthStatus } from '@/core/entities/User';
+import { upsertProfile } from '@/infrastructure/services/supabaseProfile';
 
 const AUTH_STORAGE_KEY = '@appmovil:auth_user';
 
@@ -31,6 +32,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     // Persistir en AsyncStorage
     await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     set({ user, accessToken: user.access_token, status: 'authenticated', error: null });
+
+    // Sincronizar perfil con Supabase en segundo plano
+    void upsertProfile({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar_url: user.avatar_url,
+    }).catch(err => console.error('[AuthStore] Error syncing profile to Supabase:', err));
   },
 
   signOut: async () => {

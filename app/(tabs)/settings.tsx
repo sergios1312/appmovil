@@ -21,7 +21,7 @@ interface SettingItem {
 
 export default function SettingsScreen() {
   const { user, signOut, isAuthenticated } = useAuth();
-  const syncWithGoogle = useTaskStore((state) => state.syncWithGoogle);
+  const loadTasks = useTaskStore((state) => state.loadTasks);
   const isLoading = useTaskStore((state) => state.isLoading);
 
   const handleSignOut = () => {
@@ -37,16 +37,16 @@ export default function SettingsScreen() {
 
   const handleSync = async () => {
     if (!isAuthenticated) {
-      Alert.alert('Inicia sesión', 'Debes estar conectado con Google para sincronizar.');
+      Alert.alert('Inicia sesión', 'Debes estar conectado para sincronizar.');
       return;
     }
-    await syncWithGoogle();
-    Alert.alert('Sincronización', 'Misiones sincronizadas con éxito.');
+    await loadTasks();
+    Alert.alert('Sincronización', 'Datos recargados desde Supabase.');
   };
 
   const SETTINGS: SettingItem[] = [
     { icon: 'logo-google', label: 'Cuenta de Google', value: user?.email ?? 'No conectado' },
-    { icon: 'sync-outline', label: 'Sincronización', value: isLoading ? 'Sincronizando...' : 'Manual', onPress: handleSync },
+    { icon: 'sync-outline', label: 'Sincronización', value: isLoading ? 'Sincronizando...' : 'Tiempo real', onPress: handleSync },
     { icon: 'notifications-outline', label: 'Notificaciones', value: 'Activadas', onPress: () => {} },
     { icon: 'moon-outline', label: 'Tema', value: 'Oscuro', onPress: () => {} },
     { icon: 'information-circle-outline', label: 'Versión', value: '1.0.0' },

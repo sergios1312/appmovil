@@ -14,5 +14,4 @@ export interface ITaskRepository {
   update(dto: UpdateTaskDTO): Promise<Task>;
   delete(id: string): Promise<void>;
   complete(id: string): Promise<Task>;
-  syncWithGoogle?(): Promise<void>;
 }

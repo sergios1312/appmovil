@@ -50,10 +50,4 @@ export interface ITaskRepository {
    * Marca una tarea como completada
    */
   complete(id: string): Promise<Task>;
-
-  /**
-   * Sincroniza las tareas locales con Google Tasks/Calendar
-   * Se implementará en fases posteriores
-   */
-  syncWithGoogle?(): Promise<void>;
 }

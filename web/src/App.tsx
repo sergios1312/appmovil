@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { useTaskStore } from '@/store/taskStore';
+import { useExpenseStore } from '@/store/expenseStore';
 import { Layout } from '@/components/Layout';
 import { LoginPage } from '@/pages/LoginPage';
 import { HomePage } from '@/pages/HomePage';
@@ -27,12 +29,46 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Hook para inicializar datos y suscripciones Realtime
+ * cuando el usuario está autenticado.
+ */
+function useRealtimeSync() {
+  const user = useAuthStore((s) => s.user);
+  const loadTasks = useTaskStore((s) => s.loadTasks);
+  const subscribeToTasksRealtime = useTaskStore((s) => s.subscribeToRealtime);
+  const unsubscribeFromTasksRealtime = useTaskStore((s) => s.unsubscribeFromRealtime);
+  const loadExpenses = useExpenseStore((s) => s.loadExpenses);
+  const subscribeToExpensesRealtime = useExpenseStore((s) => s.subscribeToRealtime);
+  const unsubscribeFromExpensesRealtime = useExpenseStore((s) => s.unsubscribeFromRealtime);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Cargar datos iniciales
+    void loadTasks();
+    void loadExpenses();
+
+    // Suscribirse a Realtime
+    subscribeToTasksRealtime();
+    subscribeToExpensesRealtime();
+
+    return () => {
+      unsubscribeFromTasksRealtime();
+      unsubscribeFromExpensesRealtime();
+    };
+  }, [user?.id]);
+}
+
 export default function App() {
   const authStore = useAuthStore();
 
   useEffect(() => {
     authStore.restoreSession();
   }, []);
+
+  // Activar Realtime sync cuando hay usuario
+  useRealtimeSync();
 
   return (
     <BrowserRouter>

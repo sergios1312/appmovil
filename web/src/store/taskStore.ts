@@ -1,18 +1,17 @@
 /**
- * @file taskStore.ts — Web task store with Google Tasks sync
+ * @file taskStore.ts — Web task store with Supabase sync + Realtime
+ *
+ * MIGRACIÓN: Google Tasks → Supabase
+ * - El repositorio ahora es SupabaseTaskRepository (PostgreSQL remoto)
+ * - Realtime: suscripción WebSocket para recibir cambios de la app móvil al instante
+ * - Se eliminó toda la lógica de Google Tasks sync
  */
 
 import { create } from 'zustand';
-import type { Task, CreateTaskDTO, UpdateTaskDTO, TaskType } from '@/core/entities/Task';
-import { taskRepository } from '@/data/WebTaskRepository';
+import type { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
+import { SupabaseTaskRepository } from '@/data/SupabaseTaskRepository';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
-import {
-  createGoogleTask,
-  updateGoogleTask,
-  deleteGoogleTask,
-  fetchGoogleTaskLists,
-  fetchGoogleTasks,
-} from '@/services/googleTasks';
 
 export type TaskFilter = 'all' | 'today' | 'pending' | 'completed';
 export type TaskTypeFilter = 'all' | 'routine' | 'single' | 'project' | 'habit_group';
@@ -23,7 +22,6 @@ interface TaskStore {
   error: string | null;
   activeFilter: TaskFilter;
   activeTypeFilter: TaskTypeFilter;
-  defaultTaskListId: string | null;
 
   loadTasks: () => Promise<void>;
   addTask: (dto: CreateTaskDTO) => Promise<Task>;
@@ -34,16 +32,20 @@ interface TaskStore {
   setFilter: (filter: TaskFilter) => void;
   setTypeFilter: (filter: TaskTypeFilter) => void;
   clearError: () => void;
-  syncWithGoogle: () => Promise<void>;
+
+  // Realtime
+  subscribeToRealtime: () => void;
+  unsubscribeFromRealtime: () => void;
 }
 
-async function getDefaultTaskListId(accessToken: string): Promise<string | null> {
-  try {
-    const lists = await fetchGoogleTaskLists(accessToken);
-    return lists.length > 0 ? lists[0].id : null;
-  } catch {
-    return null;
-  }
+/**
+ * Obtiene el repositorio de tareas con el userId actual.
+ * Si no hay usuario autenticado, lanza un error.
+ */
+function getRepo(): SupabaseTaskRepository {
+  const user = useAuthStore.getState().user;
+  if (!user) throw new Error('No hay usuario autenticado');
+  return new SupabaseTaskRepository(user.id);
 }
 
 /**
@@ -64,97 +66,32 @@ function autoCompleteHabitGroups(tasks: Task[]): Task[] {
   return updated;
 }
 
+// Referencia al canal de Realtime para poder desuscribirse
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
   isLoading: false,
   error: null,
   activeFilter: 'all',
   activeTypeFilter: 'all',
-  defaultTaskListId: null,
 
   loadTasks: async () => {
     set({ isLoading: true, error: null });
     try {
-      const tasks = await taskRepository.getAll(true);
+      const repo = getRepo();
+      const tasks = await repo.getAll(true);
       set({ tasks: autoCompleteHabitGroups(tasks), isLoading: false });
     } catch (err) {
       set({ error: String(err), isLoading: false });
     }
   },
 
-  syncWithGoogle: async () => {
-    const accessToken = useAuthStore.getState().accessToken;
-    if (!accessToken) return;
-
-    set({ isLoading: true, error: null });
-    try {
-      let listId = get().defaultTaskListId;
-      if (!listId) {
-        listId = await getDefaultTaskListId(accessToken);
-        if (listId) set({ defaultTaskListId: listId });
-      }
-      if (listId) {
-        const googleTasks = await fetchGoogleTasks(accessToken, listId);
-        const localTasks = await taskRepository.getAll(true);
-        for (const gTask of googleTasks) {
-          const exists = localTasks.find(t => t.google_task_id === gTask.id);
-          if (!exists) {
-            await taskRepository.create({
-              title: gTask.title,
-              description: gTask.description,
-              status: gTask.status,
-              due_date: gTask.due_date,
-              parent_id: gTask.parent_id,
-              priority: 'medium',
-              task_type: 'single',
-              weight: 3,
-              hide_from_calendar: false,
-              google_task_id: gTask.id,
-              google_tasklist_id: listId!,
-              is_synced: true,
-            });
-          }
-        }
-        const updatedTasks = await taskRepository.getAll(true);
-        set({ tasks: autoCompleteHabitGroups(updatedTasks), isLoading: false });
-      }
-    } catch {
-      set({ error: 'Error sincronizando con Google Tasks', isLoading: false });
-    }
-  },
-
   addTask: async (dto) => {
     try {
-      const newTask = await taskRepository.create(dto);
+      const repo = getRepo();
+      const newTask = await repo.create(dto);
       set((state) => ({ tasks: autoCompleteHabitGroups([newTask, ...state.tasks]) }));
-
-      // Background Google Tasks sync
-      const accessToken = useAuthStore.getState().accessToken;
-      if (accessToken) {
-        (async () => {
-          let listId = get().defaultTaskListId;
-          if (!listId) {
-            listId = await getDefaultTaskListId(accessToken);
-            if (listId) set({ defaultTaskListId: listId });
-          }
-          if (listId) {
-            try {
-              const gTask = await createGoogleTask(accessToken, listId, newTask);
-              const syncedTask = await taskRepository.update({
-                id: newTask.id,
-                google_task_id: gTask.id,
-                google_tasklist_id: listId,
-              });
-              set((state) => ({
-                tasks: state.tasks.map((t) => (t.id === syncedTask.id ? syncedTask : t)),
-              }));
-            } catch (e) {
-              console.error('[GoogleTasks Sync] Error creating task:', e);
-            }
-          }
-        })();
-      }
-
       return newTask;
     } catch (err) {
       set({ error: String(err) });
@@ -164,19 +101,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   updateTask: async (dto) => {
     try {
-      const updated = await taskRepository.update(dto);
+      const repo = getRepo();
+      const updated = await repo.update(dto);
       set((state) => ({
         tasks: autoCompleteHabitGroups(
           state.tasks.map((t) => (t.id === dto.id ? updated : t))
         ),
       }));
-
-      // Background Google Tasks sync
-      const accessToken = useAuthStore.getState().accessToken;
-      if (accessToken && updated.google_task_id && updated.google_tasklist_id) {
-        updateGoogleTask(accessToken, updated.google_tasklist_id, updated.google_task_id, updated)
-          .catch(e => console.error('[GoogleTasks Sync] Error updating:', e));
-      }
     } catch (err) {
       set({ error: String(err) });
     }
@@ -184,19 +115,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   deleteTask: async (id) => {
     try {
-      const taskToDelete = get().tasks.find((t) => t.id === id);
-      await taskRepository.delete(id);
+      const repo = getRepo();
+      await repo.delete(id);
       set((state) => ({
         tasks: state.tasks.filter((t) => t.id !== id && t.parent_id !== id),
       }));
-
-      if (taskToDelete?.google_task_id && taskToDelete?.google_tasklist_id) {
-        const accessToken = useAuthStore.getState().accessToken;
-        if (accessToken) {
-          deleteGoogleTask(accessToken, taskToDelete.google_tasklist_id, taskToDelete.google_task_id)
-            .catch(e => console.error('[GoogleTasks Sync] Error deleting:', e));
-        }
-      }
     } catch (err) {
       set({ error: String(err) });
     }
@@ -213,13 +136,100 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setFilter: (filter) => set({ activeFilter: filter }),
   setTypeFilter: (filter) => set({ activeTypeFilter: filter }),
   clearError: () => set({ error: null }),
+
+  // ─── Realtime ──────────────────────────────────────────────────────────────
+
+  subscribeToRealtime: () => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+
+    // Evitar doble suscripción
+    if (realtimeChannel) return;
+
+    realtimeChannel = supabase
+      .channel('tasks-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const { eventType } = payload;
+
+          if (eventType === 'INSERT') {
+            const newTask = payload.new as Record<string, unknown>;
+            set((state) => {
+              // Evitar duplicados (la tarea ya puede estar si fue creada desde esta misma app)
+              if (state.tasks.some(t => t.id === newTask.id)) return state;
+              return {
+                tasks: autoCompleteHabitGroups([mapPayloadToTask(newTask), ...state.tasks]),
+              };
+            });
+          }
+
+          if (eventType === 'UPDATE') {
+            const updatedTask = payload.new as Record<string, unknown>;
+            set((state) => ({
+              tasks: autoCompleteHabitGroups(
+                state.tasks.map((t) =>
+                  t.id === updatedTask.id ? mapPayloadToTask(updatedTask) : t
+                )
+              ),
+            }));
+          }
+
+          if (eventType === 'DELETE') {
+            const deletedId = (payload.old as Record<string, unknown>).id as string;
+            set((state) => ({
+              tasks: state.tasks.filter((t) => t.id !== deletedId && t.parent_id !== deletedId),
+            }));
+          }
+        }
+      )
+      .subscribe();
+  },
+
+  unsubscribeFromRealtime: () => {
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+  },
 }));
+
+/**
+ * Mapea un payload de Realtime a la entidad Task.
+ */
+function mapPayloadToTask(row: Record<string, unknown>): Task {
+  return {
+    id: row.id as string,
+    user_id: row.user_id as string,
+    parent_id: (row.parent_id as string) || null,
+    title: row.title as string,
+    description: (row.description as string) ?? undefined,
+    status: (row.status as Task['status']) || 'pending',
+    priority: (row.priority as Task['priority']) || 'medium',
+    task_type: (row.task_type as Task['task_type']) || 'single',
+    due_date: (row.due_date as string) ?? undefined,
+    weight: (row.weight as number) ?? 3,
+    repeat_days: (row.repeat_days as number[]) ?? undefined,
+    hide_from_calendar: (row.hide_from_calendar as boolean) ?? false,
+    tags: (row.tags as string[]) ?? [],
+    is_synced: true,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+  } as Task;
+}
+
+// ─── Selectores derivados ─────────────────────────────────────────────────────
 
 export const selectFilteredTasks = (state: TaskStore): Task[] => {
   let rootTasks = state.tasks.filter((t) => !t.parent_id);
   const today = new Date().toISOString().split('T')[0];
 
-  // Apply type filter
   if (state.activeTypeFilter !== 'all') {
     rootTasks = rootTasks.filter(t => t.task_type === state.activeTypeFilter);
   }
@@ -264,19 +274,12 @@ export const selectWeeklyProgress = (state: TaskStore) => {
   const totalWeight = weekTasks.reduce((acc, t) => acc + (t.weight || 3), 0);
   const totalCompleted = weekTasks.length;
 
-  // Progressive milestones
   const milestones = [10, 25, 50, 75, 100, 150];
   const currentMilestone = milestones.find(m => totalWeight < m) ?? milestones[milestones.length - 1];
   const progress = Math.min(Math.round((totalWeight / currentMilestone) * 100), 100);
   const remaining = Math.max(currentMilestone - totalWeight, 0);
 
-  return {
-    totalWeight,
-    totalCompleted,
-    currentMilestone,
-    progress,
-    remaining,
-  };
+  return { totalWeight, totalCompleted, currentMilestone, progress, remaining };
 };
 
 /**
@@ -291,12 +294,7 @@ export const selectProjects = (state: TaskStore) => {
     const completed = allDescendants.filter(t => t.status === 'completed').length;
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    return {
-      ...project,
-      totalSubtasks: total,
-      completedSubtasks: completed,
-      progress,
-    };
+    return { ...project, totalSubtasks: total, completedSubtasks: completed, progress };
   });
 };
 

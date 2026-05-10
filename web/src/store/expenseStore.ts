@@ -1,11 +1,16 @@
 /**
- * @file expenseStore.ts — Web expense store for financial tracking
+ * @file expenseStore.ts — Web expense store with Supabase sync + Realtime
+ *
+ * MIGRACIÓN: localStorage → Supabase
  */
 
 import { create } from 'zustand';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/authStore';
 
 export interface Expense {
   id: string;
+  user_id?: string;
   title: string;
   amount: number;
   category: string;
@@ -35,54 +40,135 @@ export const EXPENSE_CATEGORIES: { key: ExpenseCategory; label: string; emoji: s
   { key: 'otros', label: 'Otros', emoji: '📦' },
 ];
 
-const STORAGE_KEY = 'taskflow_expenses';
+function generateId(): string {
+  return `exp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+function getUserId(): string {
+  const user = useAuthStore.getState().user;
+  if (!user) throw new Error('No hay usuario autenticado');
+  return user.id;
+}
 
 interface ExpenseStore {
   expenses: Expense[];
   isLoading: boolean;
 
-  loadExpenses: () => void;
-  addExpense: (expense: Omit<Expense, 'id' | 'created_at'>) => void;
-  deleteExpense: (id: string) => void;
+  loadExpenses: () => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'user_id'>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+
+  // Realtime
+  subscribeToRealtime: () => void;
+  unsubscribeFromRealtime: () => void;
 }
 
-function generateId(): string {
-  return `exp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
+let expenseChannel: ReturnType<typeof supabase.channel> | null = null;
 
-export const useExpenseStore = create<ExpenseStore>((set) => ({
+export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   expenses: [],
   isLoading: false,
 
-  loadExpenses: () => {
+  loadExpenses: async () => {
+    set({ isLoading: true });
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const expenses = raw ? JSON.parse(raw) : [];
-      set({ expenses });
-    } catch {
-      set({ expenses: [] });
+      const userId = getUserId();
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      set({ expenses: data ?? [], isLoading: false });
+    } catch (err) {
+      console.error('[ExpenseStore] loadExpenses:', err);
+      set({ expenses: [], isLoading: false });
     }
   },
 
-  addExpense: (data) => {
-    const newExpense: Expense = {
-      ...data,
-      id: generateId(),
-      created_at: new Date().toISOString(),
-    };
-    set((state) => {
-      const updated = [newExpense, ...state.expenses];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return { expenses: updated };
-    });
+  addExpense: async (data) => {
+    try {
+      const userId = getUserId();
+      const newExpense = {
+        id: generateId(),
+        user_id: userId,
+        title: data.title,
+        amount: data.amount,
+        category: data.category,
+        date: data.date,
+        notes: data.notes || null,
+        created_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from('expenses').insert(newExpense);
+      if (error) throw error;
+
+      set((state) => ({
+        expenses: [newExpense as Expense, ...state.expenses],
+      }));
+    } catch (err) {
+      console.error('[ExpenseStore] addExpense:', err);
+    }
   },
 
-  deleteExpense: (id) => {
-    set((state) => {
-      const updated = state.expenses.filter(e => e.id !== id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return { expenses: updated };
-    });
+  deleteExpense: async (id) => {
+    try {
+      const userId = getUserId();
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      set((state) => ({
+        expenses: state.expenses.filter(e => e.id !== id),
+      }));
+    } catch (err) {
+      console.error('[ExpenseStore] deleteExpense:', err);
+    }
+  },
+
+  subscribeToRealtime: () => {
+    const user = useAuthStore.getState().user;
+    if (!user || expenseChannel) return;
+
+    expenseChannel = supabase
+      .channel('expenses-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expenses',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newExp = payload.new as Expense;
+            set((state) => {
+              if (state.expenses.some(e => e.id === newExp.id)) return state;
+              return { expenses: [newExp, ...state.expenses] };
+            });
+          }
+          if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as Record<string, unknown>).id as string;
+            set((state) => ({
+              expenses: state.expenses.filter(e => e.id !== deletedId),
+            }));
+          }
+        }
+      )
+      .subscribe();
+  },
+
+  unsubscribeFromRealtime: () => {
+    if (expenseChannel) {
+      supabase.removeChannel(expenseChannel);
+      expenseChannel = null;
+    }
   },
 }));
 
