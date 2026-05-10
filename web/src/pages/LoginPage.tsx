@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { signInWithGoogleWeb, fetchGoogleUserInfo } from '@/services/googleAuth';
 import type { User } from '@/core/entities/User';
-import { IoCalendar, IoCheckmarkDone, IoCloudOffline, IoGitBranch, IoLogoGoogle } from 'react-icons/io5';
+import { IoSync, IoCheckmarkDone, IoPhonePortrait, IoGitBranch, IoLogoGoogle } from 'react-icons/io5';
 import type { IconType } from 'react-icons';
 
 interface Feature {
@@ -12,17 +12,14 @@ interface Feature {
 }
 
 const FEATURES: Feature[] = [
-  { Icon: IoCalendar, text: 'Sincronizado con Google Calendar' },
-  { Icon: IoCheckmarkDone, text: 'Gestion de tareas con Google Tasks' },
-  { Icon: IoCloudOffline, text: 'Funciona sin conexion a internet' },
-  { Icon: IoGitBranch, text: 'Subtareas organizadas jerarquicamente' },
+  { Icon: IoSync, text: 'Sincronización en tiempo real' },
+  { Icon: IoPhonePortrait, text: 'Disponible en web y móvil' },
+  { Icon: IoCheckmarkDone, text: 'Gestión de tareas con gamificación' },
+  { Icon: IoGitBranch, text: 'Subtareas organizadas jerárquicamente' },
 ];
 
 const SCOPES = [
   'openid', 'profile', 'email',
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/calendar.events',
-  'https://www.googleapis.com/auth/tasks',
 ];
 
 export function LoginPage() {
@@ -106,7 +103,7 @@ export function LoginPage() {
         </button>
 
         <p className="login-disclaimer">
-          Al continuar, aceptas que la app acceda a tu Google Calendar y Google Tasks para sincronizacion.
+          Al continuar, tus datos se sincronizan de forma segura en la nube.
         </p>
       </div>
     </div>
