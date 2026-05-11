@@ -13,13 +13,17 @@ export default function RootLayout() {
   const router = useRouter();
   const accessToken = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
+  const authStatus = useAuthStore((state) => state.status);
   const navigationState = useRootNavigationState();
 
   const loadTasks = useTaskStore((s) => s.loadTasks);
   const subscribeToRealtime = useTaskStore((s) => s.subscribeToRealtime);
   const unsubscribeFromRealtime = useTaskStore((s) => s.unsubscribeFromRealtime);
 
+  const restoreSession = useAuthStore((state) => state.restoreSession);
+
   useEffect(() => {
+    void restoreSession();
     void initializeNotifications();
   }, []);
 
@@ -36,7 +40,10 @@ export default function RootLayout() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (!navigationState?.key) return; // Esperar a que la navegación esté montada
+    if (!navigationState?.key) return;
+
+    // Esperar a que restoreSession termine antes de tomar decisiones de navegación
+    if (authStatus === 'loading') return;
 
     // Usamos setTimeout para asegurarnos de que el ciclo de renderizado ha finalizado 
     // y el RootLayout está 100% montado antes de intentar navegar.
@@ -53,7 +60,7 @@ export default function RootLayout() {
     }, 1);
 
     return () => clearTimeout(timeout);
-  }, [accessToken, segments, navigationState?.key]);
+  }, [accessToken, authStatus, segments, navigationState?.key]);
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
