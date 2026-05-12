@@ -57,12 +57,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
       const user: User = JSON.parse(stored);
-      const isExpired = new Date(user.token_expires_at) < new Date();
-      if (isExpired) {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-        set({ status: 'unauthenticated', user: null, accessToken: null });
-        return;
-      }
+      // Sesión permanente: no validamos expiración del token de Google.
+      // El usuario permanece autenticado hasta que haga sign out manualmente.
       set({ user, accessToken: user.access_token, status: 'authenticated' });
     } catch {
       set({ status: 'unauthenticated', error: 'Error restaurando sesión' });
