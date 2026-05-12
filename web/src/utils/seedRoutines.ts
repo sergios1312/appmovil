@@ -1,4 +1,4 @@
-import { CreateTaskDTO } from '@/core/entities/Task';
+import type { CreateTaskDTO } from '@/core/entities/Task';
 
 export async function seedDailyRoutines(addTask: (dto: CreateTaskDTO) => Promise<any>, userId: string) {
   const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
