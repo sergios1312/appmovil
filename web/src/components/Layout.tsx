@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { IoHome, IoCheckboxOutline, IoCalendar, IoSettings, IoWallet } from 'react-icons/io5';
 import type { IconType } from 'react-icons';
+import { DailyTimer } from './DailyTimer';
 
 interface NavItem {
   path: string;
@@ -72,7 +73,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main Content */}
-      <main className="main-content">{children}</main>
+      <main className="main-content">
+        <DailyTimer />
+        {children}
+      </main>
 
       {/* Mobile Bottom Nav */}
       <nav className="mobile-nav">

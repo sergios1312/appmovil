@@ -82,6 +82,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const repo = getRepo();
       const tasks = await repo.getAll(true);
       set({ tasks: autoCompleteHabitGroups(tasks), isLoading: false });
+      
+      // Procesar rutinas diarias atrasadas
+      import('@/utils/recurrence').then(({ processDailyRoutines }) => {
+        processDailyRoutines(get().tasks, get().addTask, get().updateTask);
+      });
     } catch (err) {
       set({ error: String(err), isLoading: false });
     }

@@ -22,6 +22,21 @@ export function SettingsPage() {
     alert('Datos recargados desde Supabase.');
   };
 
+  const handleSeedRoutines = async () => {
+    if (!authStore.user) return;
+    if (confirm('¿Estás seguro de que deseas generar las rutinas diarias? (Esto agregará tareas a tu cuenta)')) {
+      import('@/utils/seedRoutines').then(async ({ seedDailyRoutines }) => {
+        try {
+          await seedDailyRoutines(taskStore.addTask, authStore.user!.id);
+          alert('Rutinas generadas exitosamente. Revisa tu lista de tareas.');
+        } catch (error) {
+          console.error(error);
+          alert('Error al generar las rutinas.');
+        }
+      });
+    }
+  };
+
   const handleSignOut = () => {
     if (confirm('Estas seguro de que deseas cerrar sesion?')) {
       authStore.signOut();
@@ -82,6 +97,13 @@ export function SettingsPage() {
             <span className="setting-label">Tema</span>
           </div>
           <span className="setting-value">Oscuro</span>
+        </div>
+
+        <div className="setting-row" onClick={handleSeedRoutines} style={{ cursor: 'pointer' }}>
+          <div className="setting-left">
+            <span className="setting-icon"><IoCheckmarkCircle size={18} /></span>
+            <span className="setting-label" style={{ color: 'var(--primary)' }}>Generar Rutinas Básicas</span>
+          </div>
         </div>
 
         <div className="setting-row">
