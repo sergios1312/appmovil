@@ -37,6 +37,35 @@ export function SettingsPage() {
     }
   };
 
+  const handleResetRoutines = async () => {
+    if (!authStore.user) return;
+    if (!confirm('⚠️ Esto eliminará TODAS tus rutinas actuales y las recreará correctamente para hoy. ¿Continuar?')) return;
+
+    try {
+      // 1. Eliminar todas las tareas de tipo rutina/habit_group de la BD
+      const routineTasks = taskStore.tasks.filter(
+        (t) => t.task_type === 'routine' || t.task_type === 'habit_group'
+      );
+      for (const t of routineTasks) {
+        await taskStore.deleteTask(t.id);
+      }
+
+      // 2. Limpiar el flag del día para forzar re-proceso
+      localStorage.removeItem('taskflow_recurrence_date');
+
+      // 3. Re-seedear rutinas desde cero
+      const { seedDailyRoutines } = await import('@/utils/seedRoutines');
+      await seedDailyRoutines(taskStore.addTask, authStore.user!.id);
+
+      // 4. Recargar tareas
+      await taskStore.loadTasks();
+      alert('✅ Rutinas reiniciadas correctamente.');
+    } catch (error) {
+      console.error(error);
+      alert('Error al reiniciar las rutinas.');
+    }
+  };
+
   const handleSignOut = () => {
     if (confirm('Estas seguro de que deseas cerrar sesion?')) {
       authStore.signOut();
@@ -103,6 +132,13 @@ export function SettingsPage() {
           <div className="setting-left">
             <span className="setting-icon"><IoCheckmarkCircle size={18} /></span>
             <span className="setting-label" style={{ color: 'var(--primary)' }}>Generar Rutinas Básicas</span>
+          </div>
+        </div>
+
+        <div className="setting-row" onClick={handleResetRoutines} style={{ cursor: 'pointer' }}>
+          <div className="setting-left">
+            <span className="setting-icon"><IoSyncOutline size={18} /></span>
+            <span className="setting-label" style={{ color: '#FF9F0A' }}>⚠️ Reiniciar Rutinas (Reparar)</span>
           </div>
         </div>
 
