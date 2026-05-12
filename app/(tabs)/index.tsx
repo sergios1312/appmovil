@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { FlatList, StyleSheet, Text, View, ActivityIndicator, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import FloatingActionButton from '@/presentation/components/FloatingActionButton';
 import TaskItem from '@/presentation/components/TaskItem';
-import { useTaskStore } from '@/presentation/store/taskStore';
+import { useTaskStore, selectTodayStats } from '@/presentation/store/taskStore';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 import type { Task } from '@/core/entities/Task';
+import { getDailyView, isRootTask } from '@/utils/taskFilters';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -17,16 +18,26 @@ export default function HomeScreen() {
   const addTask = useTaskStore((state) => state.addTask);
   const xpBarAnim = useRef(new Animated.Value(0)).current;
 
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const rootTasks = useMemo(() => tasks.filter((t) => !t.parent_id), [tasks]);
 
-  // Today stats
+  // Today stats (con recurrencia: cuenta rutinas del día)
   const todayStats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayTasks = tasks.filter(t => t.due_date?.startsWith(today));
+    const dailyTasks = getDailyView(tasks, new Date());
+    const rootDailyTasks = dailyTasks.filter(t => isRootTask(t));
     return {
-      pending: todayTasks.filter(t => t.status !== 'completed').length,
-      completed: todayTasks.filter(t => t.status === 'completed').length,
+      pending: rootDailyTasks.filter(t => t.status !== 'completed').length,
+      completed: rootDailyTasks.filter(t => t.status === 'completed').length,
       total: rootTasks.length,
+      routines: rootDailyTasks.filter(t => t.is_recurrence_instance).length,
     };
   }, [tasks, rootTasks]);
 
@@ -116,9 +127,19 @@ export default function HomeScreen() {
           <View>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.appLabel}>QUESTLIST</Text>
+              <View style={styles.headerTopRow}>
+                <Text style={styles.appLabel}>QUESTLIST</Text>
+                <View style={styles.timeContainer}>
+                  <Ionicons name="time-outline" size={14} color={COLORS.primary} />
+                  <Text style={styles.timeText}>
+                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+              </View>
               <Text style={styles.title}>Centro de Operaciones</Text>
-              <Text style={styles.subtitle}>Panel de misiones activas</Text>
+              <Text style={styles.subtitle}>
+                {currentTime.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </Text>
             </View>
 
             {/* XP / Level Card */}
@@ -237,15 +258,34 @@ const styles = StyleSheet.create({
 
   // Header
   header: { marginBottom: SPACING.lg },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primaryDim,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+  },
+  timeText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.xs,
+    fontWeight: '700',
+  },
   appLabel: {
     fontSize: TYPOGRAPHY.xs,
     color: COLORS.primary,
     fontWeight: '800',
     letterSpacing: 3,
-    marginBottom: 4,
   },
   title: { fontSize: TYPOGRAPHY.hero, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary, marginTop: 2 },
+  subtitle: { fontSize: TYPOGRAPHY.sm, color: COLORS.textSecondary, marginTop: 2, textTransform: 'capitalize' },
 
   // Level / XP Card
   levelCard: {

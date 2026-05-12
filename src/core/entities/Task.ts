@@ -43,8 +43,8 @@ export interface Task {
   /** Tipo de tarea */
   task_type: TaskType;
 
-  /** Fecha límite en formato ISO 8601 (ej: "2024-12-31T23:59:00Z") */
-  due_date?: string;
+  /** Fecha límite en formato ISO 8601 (ej: "2024-12-31T23:59:00Z") o null para sin fecha */
+  due_date?: string | null;
 
   /**
    * Peso de la tarea para gamificación (1-10).
