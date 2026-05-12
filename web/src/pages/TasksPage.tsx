@@ -35,7 +35,7 @@ export function TasksPage() {
 
   const filteredTasks = useMemo(() => {
     let rootTasks = store.tasks.filter((t) => !t.parent_id);
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 
     // Apply type filter
     if (store.activeTypeFilter !== 'all') {

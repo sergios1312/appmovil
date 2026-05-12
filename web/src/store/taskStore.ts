@@ -82,11 +82,21 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const repo = getRepo();
       const tasks = await repo.getAll(true);
       set({ tasks: autoCompleteHabitGroups(tasks), isLoading: false });
-      
-      // Procesar rutinas diarias atrasadas
-      import('@/utils/recurrence').then(({ processDailyRoutines }) => {
-        processDailyRoutines(get().tasks, get().addTask, get().updateTask);
-      });
+
+      // Procesar rutinas diarias atrasadas (eliminar antiguas, crear hoy)
+      const { processDailyRoutines } = await import('@/utils/recurrence');
+      const madeChanges = await processDailyRoutines(
+        get().tasks,
+        get().addTask,
+        get().updateTask,
+        get().deleteTask
+      );
+
+      // Si se hicieron cambios, recargar desde la BD para tener la lista limpia
+      if (madeChanges) {
+        const freshTasks = await repo.getAll(true);
+        set({ tasks: autoCompleteHabitGroups(freshTasks) });
+      }
     } catch (err) {
       set({ error: String(err), isLoading: false });
     }
@@ -233,7 +243,7 @@ function mapPayloadToTask(row: Record<string, unknown>): Task {
 
 export const selectFilteredTasks = (state: TaskStore): Task[] => {
   let rootTasks = state.tasks.filter((t) => !t.parent_id);
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
 
   if (state.activeTypeFilter !== 'all') {
     rootTasks = rootTasks.filter(t => t.task_type === state.activeTypeFilter);
@@ -253,7 +263,7 @@ export const selectFilteredTasks = (state: TaskStore): Task[] => {
 };
 
 export const selectTodayStats = (state: TaskStore) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
   const todayTasks = state.tasks.filter((t) => t.due_date?.startsWith(today));
   const total = todayTasks.length;
   const completed = todayTasks.filter((t) => t.status === 'completed').length;
