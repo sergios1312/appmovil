@@ -20,101 +20,120 @@ export default function TaskItem({ task, onPress }: TaskItemProps) {
   const isCompleted = task.status === 'completed';
   const isUrgent = task.priority === 'urgent';
 
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.container,
-        isUrgent && styles.containerUrgent,
-        isCompleted && styles.containerCompleted,
-        pressed && styles.pressed,
-      ]}
-      onPress={() => onPress(task)}
-    >
-      {/* Priority accent bar */}
-      <View style={[styles.accentBar, { backgroundColor: priority.color }]} />
+  const frameColor = isCompleted ? COLORS.secondary : priority.color;
 
-      <View style={styles.content}>
-        {/* Top row: status + title */}
-        <View style={styles.row}>
-          <View style={[styles.statusDot, { borderColor: isCompleted ? COLORS.success : priority.color }]}>
-            {isCompleted && (
-              <Ionicons name="checkmark" size={12} color={COLORS.success} />
+  return (
+    <View style={styles.wrapper}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.container,
+          { borderColor: `${frameColor}50` },
+          isUrgent && styles.containerUrgent,
+          isCompleted && styles.containerCompleted,
+          pressed && styles.pressed,
+        ]}
+        onPress={() => onPress(task)}
+      >
+        {/* Priority accent bar con glow */}
+        <View style={[styles.accentBar, { backgroundColor: frameColor, shadowColor: frameColor }]} />
+
+        <View style={styles.content}>
+          {/* Top row: status + title */}
+          <View style={styles.row}>
+            <View style={[styles.statusDot, { borderColor: isCompleted ? COLORS.secondary : frameColor }]}>
+              {isCompleted && (
+                <Ionicons name="checkmark" size={12} color={COLORS.secondary} />
+              )}
+            </View>
+            <Text
+              style={[styles.title, isCompleted && styles.titleCompleted]}
+              numberOfLines={1}
+            >
+              {task.title}
+            </Text>
+            {isUrgent && (
+              <View style={styles.urgentBadge}>
+                <Ionicons name="flame" size={10} color={COLORS.accent} />
+              </View>
             )}
           </View>
-          <Text
-            style={[styles.title, isCompleted && styles.titleCompleted]}
-            numberOfLines={1}
-          >
-            {task.title}
-          </Text>
-          {isUrgent && (
-            <View style={styles.urgentBadge}>
-              <Ionicons name="flame" size={10} color={COLORS.accent} />
-            </View>
-          )}
-        </View>
 
-        {/* Bottom row: priority badge + XP + due date + arrow */}
-        <View style={styles.metaRow}>
-          {/* Priority badge */}
-          <View style={[styles.badge, { backgroundColor: `${priority.color}18`, borderColor: `${priority.color}50` }]}>
-            <Ionicons name={priority.icon} size={10} color={priority.color} />
-            <Text style={[styles.badgeText, { color: priority.color }]}>{priority.label}</Text>
+          {/* Bottom row: priority badge + XP + due date + arrow */}
+          <View style={styles.metaRow}>
+            <View style={[styles.badge, { backgroundColor: `${priority.color}1A`, borderColor: `${priority.color}80` }]}>
+              <Ionicons name={priority.icon} size={10} color={priority.color} />
+              <Text style={[styles.badgeText, { color: priority.color }]}>{priority.label}</Text>
+            </View>
+
+            {task.weight && (
+              <View style={styles.xpBadge}>
+                <Ionicons name="flash" size={9} color={COLORS.gold} />
+                <Text style={styles.xpText}>{task.weight * 10} XP</Text>
+              </View>
+            )}
+
+            {task.due_date && (
+              <View style={styles.dueDateRow}>
+                <Ionicons name="time-outline" size={10} color={COLORS.textSecondary} />
+                <Text style={styles.dueDate}>
+                  {new Date(task.due_date).toLocaleDateString('es', {
+                    day: '2-digit',
+                    month: 'short',
+                  })}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.spacer} />
+            <Ionicons name="chevron-forward" size={14} color={frameColor} />
           </View>
-
-          {/* XP reward */}
-          {task.weight && (
-            <View style={styles.xpBadge}>
-              <Text style={styles.xpText}>⚡ {task.weight * 10} XP</Text>
-            </View>
-          )}
-
-          {/* Due date */}
-          {task.due_date && (
-            <View style={styles.dueDateRow}>
-              <Ionicons name="time-outline" size={10} color={COLORS.textMuted} />
-              <Text style={styles.dueDate}>
-                {new Date(task.due_date).toLocaleDateString('es', {
-                  day: '2-digit',
-                  month: 'short',
-                })}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.spacer} />
-          <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+
+      {/* Esquinas HUD */}
+      <View pointerEvents="none" style={[styles.corner, styles.cornerTL, { borderColor: frameColor }]} />
+      <View pointerEvents="none" style={[styles.corner, styles.cornerBR, { borderColor: frameColor }]} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+  },
   container: {
     flexDirection: 'row',
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
-    borderColor: COLORS.border,
     overflow: 'hidden',
     ...SHADOWS.card,
   },
   containerUrgent: {
-    borderColor: `${COLORS.accent}40`,
-    backgroundColor: COLORS.accentDim,
+    ...SHADOWS.glowRed,
   },
   containerCompleted: {
-    opacity: 0.6,
-    borderColor: `${COLORS.success}30`,
+    opacity: 0.55,
+    backgroundColor: COLORS.surfaceHigh,
   },
   pressed: {
-    opacity: 0.8,
+    opacity: 0.85,
     transform: [{ scale: 0.98 }],
   },
   accentBar: {
     width: 3,
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
   },
+  corner: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+  },
+  cornerTL: { top: -1, left: -1, borderTopWidth: 2, borderLeftWidth: 2 },
+  cornerBR: { bottom: -1, right: -1, borderBottomWidth: 2, borderRightWidth: 2 },
   content: {
     flex: 1,
     padding: SPACING.md,
@@ -174,15 +193,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   xpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     backgroundColor: COLORS.goldDim,
     borderRadius: RADIUS.xs,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: `${COLORS.gold}60`,
   },
   xpText: {
     fontSize: TYPOGRAPHY.xs,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.gold,
+    letterSpacing: 0.5,
   },
   dueDateRow: {
     flexDirection: 'row',
@@ -191,7 +216,8 @@ const styles = StyleSheet.create({
   },
   dueDate: {
     fontSize: TYPOGRAPHY.xs,
-    color: COLORS.textMuted,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
   },
   spacer: { flex: 1 },
 });
