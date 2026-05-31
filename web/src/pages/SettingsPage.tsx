@@ -27,7 +27,7 @@ export function SettingsPage() {
     if (confirm('¿Estás seguro de que deseas generar las rutinas diarias? (Esto agregará tareas a tu cuenta)')) {
       import('@/utils/seedRoutines').then(async ({ seedDailyRoutines }) => {
         try {
-          await seedDailyRoutines(taskStore.addTask, authStore.user!.id);
+          await seedDailyRoutines(taskStore.addTask);
           alert('Rutinas generadas exitosamente. Revisa tu lista de tareas.');
         } catch (error) {
           console.error(error);
@@ -55,7 +55,7 @@ export function SettingsPage() {
 
       // 3. Re-seedear rutinas desde cero
       const { seedDailyRoutines } = await import('@/utils/seedRoutines');
-      await seedDailyRoutines(taskStore.addTask, authStore.user!.id);
+      await seedDailyRoutines(taskStore.addTask);
 
       // 4. Recargar tareas
       await taskStore.loadTasks();

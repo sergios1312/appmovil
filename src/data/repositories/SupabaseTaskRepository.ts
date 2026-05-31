@@ -2,22 +2,16 @@
  * @file SupabaseTaskRepository.ts
  * @layer data/repositories
  * @description Implementación del repositorio de tareas usando Supabase (PostgreSQL).
- *
- * Reemplaza la implementación anterior basada en SQLite local.
- * Implementa ITaskRepository para mantener compatibilidad con los use cases.
- *
- * Ventajas sobre SQLite:
- * - Los datos se sincronizan automáticamente entre app móvil y web
- * - Supabase Realtime permite recibir cambios al instante
- * - No hay conflictos de sincronización (single source of truth)
+ * Single source of truth, sincronizada con la web vía Supabase Realtime.
  */
 
+import uuid from 'react-native-uuid';
 import { ITaskRepository } from '@/core/interfaces/ITaskRepository';
 import { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
 import { supabase } from '@/infrastructure/database/supabase';
 
 function generateId(): string {
-  return `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return String(uuid.v4());
 }
 
 /**
@@ -40,9 +34,10 @@ function mapRowToTask(row: Record<string, unknown>): Task {
     hide_from_calendar: (row.hide_from_calendar as boolean) ?? false,
     tags: (row.tags as string[]) ?? [],
     is_synced: true, // Siempre synced porque Supabase ES la fuente de verdad
+    completed_at: (row.completed_at as string) ?? undefined,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
-  } as Task;
+  };
 }
 
 export class SupabaseTaskRepository implements ITaskRepository {
@@ -123,6 +118,7 @@ export class SupabaseTaskRepository implements ITaskRepository {
       repeat_days: dto.repeat_days ?? null,
       hide_from_calendar: dto.hide_from_calendar ?? false,
       tags: dto.tags ?? [],
+      completed_at: dto.status === 'completed' ? now : null,
       created_at: now,
       updated_at: now,
     };
@@ -138,12 +134,15 @@ export class SupabaseTaskRepository implements ITaskRepository {
   }
 
   async update(dto: UpdateTaskDTO): Promise<Task> {
-    // Construir solo los campos que se están actualizando
     const updates: Record<string, unknown> = {};
 
     if (dto.title !== undefined) updates.title = dto.title;
     if (dto.description !== undefined) updates.description = dto.description;
-    if (dto.status !== undefined) updates.status = dto.status;
+    if (dto.status !== undefined) {
+      updates.status = dto.status;
+      // completed_at se deriva del status (fuente de verdad del progreso semanal).
+      updates.completed_at = dto.status === 'completed' ? new Date().toISOString() : null;
+    }
     if (dto.priority !== undefined) updates.priority = dto.priority;
     if (dto.task_type !== undefined) updates.task_type = dto.task_type;
     if (dto.weight !== undefined) updates.weight = dto.weight;
@@ -152,12 +151,10 @@ export class SupabaseTaskRepository implements ITaskRepository {
     if (dto.tags !== undefined) updates.tags = dto.tags;
     if (dto.parent_id !== undefined) updates.parent_id = dto.parent_id;
 
-    // due_date puede ser null (borrar la fecha) o un string
     if ('due_date' in dto) {
       updates.due_date = dto.due_date ?? null;
     }
 
-    // updated_at se maneja por trigger en PostgreSQL, pero lo ponemos por si acaso
     updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
@@ -173,7 +170,6 @@ export class SupabaseTaskRepository implements ITaskRepository {
   }
 
   async delete(id: string): Promise<void> {
-    // CASCADE en la DB se encarga de eliminar subtareas
     const { error } = await supabase
       .from('tasks')
       .delete()

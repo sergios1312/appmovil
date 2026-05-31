@@ -79,7 +79,7 @@ export function TaskItem({ task, onClick }: TaskItemProps) {
               <IoCalendarOutline size={12} /> {formatDueDate(task.due_date)}
             </span>
           )}
-          {task.weight > 5 && (
+          {(task.weight ?? 0) > 5 && (
             <span className="weight-badge">⚡{task.weight}</span>
           )}
           <span className="chevron"><IoChevronForward size={14} /></span>

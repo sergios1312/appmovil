@@ -1,8 +1,9 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { IoHome, IoCheckboxOutline, IoCalendar, IoSettings, IoWallet } from 'react-icons/io5';
+import { IoHome, IoCheckboxOutline, IoBarbell, IoCalendar, IoSettings, IoWallet } from 'react-icons/io5';
 import type { IconType } from 'react-icons';
 import { DailyTimer } from './DailyTimer';
+import { ErrorBanner } from './ErrorBanner';
 
 interface NavItem {
   path: string;
@@ -13,6 +14,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'Inicio', Icon: IoHome },
   { path: '/tasks', label: 'Tareas', Icon: IoCheckboxOutline },
+  { path: '/gym', label: 'Gym', Icon: IoBarbell },
   { path: '/calendar', label: 'Calendario', Icon: IoCalendar },
   { path: '/expenses', label: 'Gastos', Icon: IoWallet },
   { path: '/settings', label: 'Ajustes', Icon: IoSettings },
@@ -20,7 +22,6 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const authStore = useAuthStore();
-  const location = useLocation();
 
   return (
     <div className="app-layout">
@@ -75,6 +76,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className="main-content">
         <DailyTimer />
+        <ErrorBanner />
         {children}
       </main>
 

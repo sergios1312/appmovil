@@ -1,10 +1,11 @@
 /**
  * @file taskStore.ts — Web task store with Supabase sync + Realtime
  *
- * MIGRACIÓN: Google Tasks → Supabase
- * - El repositorio ahora es SupabaseTaskRepository (PostgreSQL remoto)
- * - Realtime: suscripción WebSocket para recibir cambios de la app móvil al instante
- * - Se eliminó toda la lógica de Google Tasks sync
+ * - Repositorio: SupabaseTaskRepository (PostgreSQL remoto)
+ * - Realtime: suscripción WebSocket para recibir cambios de la app móvil al instante,
+ *   con reconexión automática si el canal cae.
+ * - La carga inicial y el procesado de rutinas están separados y se coordinan
+ *   desde App (useRealtimeSync) para evitar reentradas y carreras.
  */
 
 import { create } from 'zustand';
@@ -12,6 +13,7 @@ import type { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
 import { SupabaseTaskRepository } from '@/data/SupabaseTaskRepository';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { localDayKey } from '@/utils/dateHelpers';
 
 export type TaskFilter = 'all' | 'today' | 'pending' | 'completed';
 export type TaskTypeFilter = 'all' | 'routine' | 'single' | 'project' | 'habit_group';
@@ -24,6 +26,7 @@ interface TaskStore {
   activeTypeFilter: TaskTypeFilter;
 
   loadTasks: () => Promise<void>;
+  processRoutines: () => Promise<void>;
   addTask: (dto: CreateTaskDTO) => Promise<Task>;
   updateTask: (dto: UpdateTaskDTO) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
@@ -48,26 +51,38 @@ function getRepo(): SupabaseTaskRepository {
   return new SupabaseTaskRepository(user.id);
 }
 
-/**
- * Auto-completes habit_group parents when all children are completed
- */
-function autoCompleteHabitGroups(tasks: Task[]): Task[] {
-  const updated = [...tasks];
-  const groups = updated.filter(t => t.task_type === 'habit_group' && t.status !== 'completed');
-  for (const group of groups) {
-    const children = updated.filter(t => t.parent_id === group.id);
-    if (children.length > 0 && children.every(c => c.status === 'completed')) {
-      const idx = updated.findIndex(t => t.id === group.id);
-      if (idx !== -1) {
-        updated[idx] = { ...updated[idx], status: 'completed', updated_at: new Date().toISOString() };
-      }
-    }
-  }
-  return updated;
+/** Estado que DEBERÍA tener un grupo de hábitos según sus hijos (o null si no aplica). */
+function expectedGroupStatus(group: Task, all: Task[]): Task['status'] | null {
+  if (group.task_type !== 'habit_group') return null;
+  const children = all.filter((t) => t.parent_id === group.id);
+  if (children.length === 0) return null;
+  return children.every((c) => c.status === 'completed') ? 'completed' : 'pending';
 }
 
-// Referencia al canal de Realtime para poder desuscribirse
+/**
+ * Persiste en BD el estado correcto de los grupos de hábitos cuyo estado no
+ * concuerda con sus hijos. Antes esto se mutaba solo en memoria y nunca se
+ * guardaba → grupos desincronizados entre dispositivos. Retorna true si cambió.
+ */
+async function reconcileHabitGroups(
+  tasks: Task[],
+  repo: SupabaseTaskRepository
+): Promise<boolean> {
+  let changed = false;
+  for (const group of tasks.filter((t) => t.task_type === 'habit_group')) {
+    const should = expectedGroupStatus(group, tasks);
+    if (should && group.status !== should) {
+      await repo.update({ id: group.id, status: should });
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+// Referencia al canal de Realtime para poder desuscribirse.
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+// Evita que processDailyRoutines se ejecute en paralelo consigo mismo.
+let isProcessingRoutines = false;
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
@@ -81,9 +96,27 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       const repo = getRepo();
       const tasks = await repo.getAll(true);
-      set({ tasks: autoCompleteHabitGroups(tasks), isLoading: false });
+      set({ tasks, isLoading: false });
 
-      // Procesar rutinas diarias atrasadas (eliminar antiguas, crear hoy)
+      // Reparar grupos de hábitos descuadrados (persistiendo en BD).
+      const changed = await reconcileHabitGroups(tasks, repo);
+      if (changed) {
+        set({ tasks: await repo.getAll(true) });
+      }
+    } catch (err) {
+      set({ error: String(err), isLoading: false });
+    }
+  },
+
+  /**
+   * Procesa las rutinas diarias (crea las de hoy, borra atrasadas). Separado de
+   * loadTasks y protegido con un flag para que no se ejecute en paralelo ni en
+   * cada navegación de página (antes corría en cada loadTasks → duplicados/carreras).
+   */
+  processRoutines: async () => {
+    if (isProcessingRoutines) return;
+    isProcessingRoutines = true;
+    try {
       const { processDailyRoutines } = await import('@/utils/recurrence');
       const madeChanges = await processDailyRoutines(
         get().tasks,
@@ -91,14 +124,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         get().updateTask,
         get().deleteTask
       );
-
-      // Si se hicieron cambios, recargar desde la BD para tener la lista limpia
       if (madeChanges) {
-        const freshTasks = await repo.getAll(true);
-        set({ tasks: autoCompleteHabitGroups(freshTasks) });
+        set({ tasks: await getRepo().getAll(true) });
       }
     } catch (err) {
-      set({ error: String(err), isLoading: false });
+      set({ error: String(err) });
+    } finally {
+      isProcessingRoutines = false;
     }
   },
 
@@ -106,7 +138,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       const repo = getRepo();
       const newTask = await repo.create(dto);
-      set((state) => ({ tasks: autoCompleteHabitGroups([newTask, ...state.tasks]) }));
+      set((state) => ({ tasks: [newTask, ...state.tasks] }));
       return newTask;
     } catch (err) {
       set({ error: String(err) });
@@ -119,10 +151,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const repo = getRepo();
       const updated = await repo.update(dto);
       set((state) => ({
-        tasks: autoCompleteHabitGroups(
-          state.tasks.map((t) => (t.id === dto.id ? updated : t))
-        ),
+        tasks: state.tasks.map((t) => (t.id === dto.id ? updated : t)),
       }));
+
+      // Si la tarea pertenece a un grupo de hábitos, persistir el estado del grupo
+      // (completar cuando todos los hijos están listos; reabrir si se reabre uno).
+      if (updated.parent_id) {
+        const parent = get().tasks.find((t) => t.id === updated.parent_id);
+        if (parent) {
+          const should = expectedGroupStatus(parent, get().tasks);
+          if (should && parent.status !== should) {
+            const updatedParent = await repo.update({ id: parent.id, status: should });
+            set((state) => ({
+              tasks: state.tasks.map((t) => (t.id === parent.id ? updatedParent : t)),
+            }));
+          }
+        }
+      }
     } catch (err) {
       set({ error: String(err) });
     }
@@ -131,9 +176,15 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   deleteTask: async (id) => {
     try {
       const repo = getRepo();
+      // Borrado en cascada recursivo (nietos incluidos), de hojas hacia la raíz,
+      // para no depender de ON DELETE CASCADE y no dejar tareas huérfanas.
+      const descendants = getDescendants(get().tasks, id);
+      for (const d of [...descendants].reverse()) await repo.delete(d.id);
       await repo.delete(id);
+
+      const removed = new Set<string>([id, ...descendants.map((t) => t.id)]);
       set((state) => ({
-        tasks: state.tasks.filter((t) => t.id !== id && t.parent_id !== id),
+        tasks: state.tasks.filter((t) => !removed.has(t.id)),
       }));
     } catch (err) {
       set({ error: String(err) });
@@ -158,7 +209,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const user = useAuthStore.getState().user;
     if (!user) return;
 
-    // Evitar doble suscripción
+    // Evitar doble suscripción.
     if (realtimeChannel) return;
 
     realtimeChannel = supabase
@@ -177,34 +228,48 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           if (eventType === 'INSERT') {
             const newTask = payload.new as Record<string, unknown>;
             set((state) => {
-              // Evitar duplicados (la tarea ya puede estar si fue creada desde esta misma app)
-              if (state.tasks.some(t => t.id === newTask.id)) return state;
-              return {
-                tasks: autoCompleteHabitGroups([mapPayloadToTask(newTask), ...state.tasks]),
-              };
+              // Evitar duplicados (puede ya existir si se creó desde esta misma app).
+              if (state.tasks.some((t) => t.id === newTask.id)) return state;
+              return { tasks: [mapPayloadToTask(newTask), ...state.tasks] };
             });
           }
 
           if (eventType === 'UPDATE') {
             const updatedTask = payload.new as Record<string, unknown>;
             set((state) => ({
-              tasks: autoCompleteHabitGroups(
-                state.tasks.map((t) =>
-                  t.id === updatedTask.id ? mapPayloadToTask(updatedTask) : t
-                )
+              tasks: state.tasks.map((t) =>
+                t.id === updatedTask.id ? mapPayloadToTask(updatedTask) : t
               ),
             }));
           }
 
           if (eventType === 'DELETE') {
             const deletedId = (payload.old as Record<string, unknown>).id as string;
-            set((state) => ({
-              tasks: state.tasks.filter((t) => t.id !== deletedId && t.parent_id !== deletedId),
-            }));
+            set((state) => {
+              const removed = new Set<string>([
+                deletedId,
+                ...getDescendants(state.tasks, deletedId).map((t) => t.id),
+              ]);
+              return { tasks: state.tasks.filter((t) => !removed.has(t.id)) };
+            });
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Si el canal falla, reconectar para que la sync con la app móvil no
+        // quede muerta en silencio. (CLOSED se ignora: ocurre al desuscribir.)
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          if (realtimeChannel) {
+            supabase.removeChannel(realtimeChannel);
+            realtimeChannel = null;
+          }
+          setTimeout(() => {
+            if (!realtimeChannel && useAuthStore.getState().user) {
+              get().subscribeToRealtime();
+            }
+          }, 3000);
+        }
+      });
   },
 
   unsubscribeFromRealtime: () => {
@@ -234,19 +299,20 @@ function mapPayloadToTask(row: Record<string, unknown>): Task {
     hide_from_calendar: (row.hide_from_calendar as boolean) ?? false,
     tags: (row.tags as string[]) ?? [],
     is_synced: true,
+    completed_at: (row.completed_at as string) ?? undefined,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
-  } as Task;
+  };
 }
 
 // ─── Selectores derivados ─────────────────────────────────────────────────────
 
 export const selectFilteredTasks = (state: TaskStore): Task[] => {
   let rootTasks = state.tasks.filter((t) => !t.parent_id);
-  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
+  const today = localDayKey(); // YYYY-MM-DD local
 
   if (state.activeTypeFilter !== 'all') {
-    rootTasks = rootTasks.filter(t => t.task_type === state.activeTypeFilter);
+    rootTasks = rootTasks.filter((t) => t.task_type === state.activeTypeFilter);
   }
 
   switch (state.activeFilter) {
@@ -263,7 +329,7 @@ export const selectFilteredTasks = (state: TaskStore): Task[] => {
 };
 
 export const selectTodayStats = (state: TaskStore) => {
-  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
+  const today = localDayKey(); // YYYY-MM-DD local
   const todayTasks = state.tasks.filter((t) => t.due_date?.startsWith(today));
   const total = todayTasks.length;
   const completed = todayTasks.filter((t) => t.status === 'completed').length;
@@ -273,7 +339,8 @@ export const selectTodayStats = (state: TaskStore) => {
 };
 
 /**
- * Calculates weekly gamification progress based on task weights.
+ * Progreso de gamificación semanal, basado en `completed_at` (no en updated_at,
+ * que cambia con cualquier edición y contaminaba el cálculo).
  */
 export const selectWeeklyProgress = (state: TaskStore) => {
   const now = new Date();
@@ -281,16 +348,16 @@ export const selectWeeklyProgress = (state: TaskStore) => {
   startOfWeek.setDate(now.getDate() - now.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
 
-  const weekTasks = state.tasks.filter(t => {
-    const updated = new Date(t.updated_at);
-    return updated >= startOfWeek && t.status === 'completed';
+  const weekTasks = state.tasks.filter((t) => {
+    if (t.status !== 'completed' || !t.completed_at) return false;
+    return new Date(t.completed_at) >= startOfWeek;
   });
 
   const totalWeight = weekTasks.reduce((acc, t) => acc + (t.weight || 3), 0);
   const totalCompleted = weekTasks.length;
 
   const milestones = [10, 25, 50, 75, 100, 150];
-  const currentMilestone = milestones.find(m => totalWeight < m) ?? milestones[milestones.length - 1];
+  const currentMilestone = milestones.find((m) => totalWeight < m) ?? milestones[milestones.length - 1];
   const progress = Math.min(Math.round((totalWeight / currentMilestone) * 100), 100);
   const remaining = Math.max(currentMilestone - totalWeight, 0);
 
@@ -301,12 +368,12 @@ export const selectWeeklyProgress = (state: TaskStore) => {
  * Gets project-type root tasks with progress info.
  */
 export const selectProjects = (state: TaskStore) => {
-  const projects = state.tasks.filter(t => !t.parent_id && t.task_type === 'project');
+  const projects = state.tasks.filter((t) => !t.parent_id && t.task_type === 'project');
 
-  return projects.map(project => {
+  return projects.map((project) => {
     const allDescendants = getDescendants(state.tasks, project.id);
     const total = allDescendants.length;
-    const completed = allDescendants.filter(t => t.status === 'completed').length;
+    const completed = allDescendants.filter((t) => t.status === 'completed').length;
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return { ...project, totalSubtasks: total, completedSubtasks: completed, progress };
@@ -314,7 +381,7 @@ export const selectProjects = (state: TaskStore) => {
 };
 
 function getDescendants(tasks: Task[], parentId: string): Task[] {
-  const children = tasks.filter(t => t.parent_id === parentId);
+  const children = tasks.filter((t) => t.parent_id === parentId);
   let all = [...children];
   for (const child of children) {
     all = [...all, ...getDescendants(tasks, child.id)];

@@ -7,7 +7,6 @@ import {
   IoFlagOutline,
   IoCalendarOutline,
   IoDocumentTextOutline,
-  IoLinkOutline,
   IoCheckmarkCircle,
   IoSquareOutline,
 } from 'react-icons/io5';
@@ -49,7 +48,6 @@ export function TaskDetailModal({ task, onClose }: TaskDetailModalProps) {
           <span className="meta"><IoFlagOutline size={14} /> Prioridad: {currentTask.priority}</span>
           <span className="meta"><IoCalendarOutline size={14} /> Vence: {currentTask.due_date ? formatDueDate(currentTask.due_date) : 'Sin fecha'}</span>
           {currentTask.description && <span className="meta"><IoDocumentTextOutline size={14} /> {currentTask.description}</span>}
-          {currentTask.google_task_id && <span className="meta"><IoLinkOutline size={14} /> Sincronizada con Google Tasks</span>}
         </div>
 
         <div className="subtask-section">

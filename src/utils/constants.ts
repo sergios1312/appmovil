@@ -6,73 +6,73 @@
  * Modificar aquí para rediseñar toda la app sin tocar componentes.
  */
 
-// ─── Paleta de colores (tema oscuro – Cyberpunk Quest UI) ─────────────────────
+// ─── Paleta de colores (tema oscuro) ──────────────────────────────────────────
+// Alineada con la web (web/src/index.css) para paridad visual entre la app nativa
+// y la web en celular. Cian #00E5FF como acento de marca.
 export const COLORS = {
-  // Backgrounds (más profundos, casi negro azulado)
-  background:    '#05070D',   // Void – fondo principal cyberpunk
-  backgroundAlt: '#080B14',   // Fondo alterno para gradient overlays
-  surface:       '#0D1220',   // Paneles / cards
-  surfaceHigh:   '#131A2C',   // Superficies elevadas
-  surfaceBright: '#1B2540',   // Hover states / inputs
+  // Backgrounds
+  background:    '#0B0E14',   // Fondo principal (= --bg web)
+  backgroundAlt: '#0B0E14',   // Fondo alterno
+  surface:       '#111827',   // Paneles / cards (= --surface web)
+  surfaceHigh:   '#1A2332',   // Superficies elevadas (= --surface-high web)
+  surfaceBright: '#222E3F',   // Inputs / hover (= --surface-bright web)
 
   // Bordes
-  border:        '#1C2740',   // Borde estándar sutil
-  borderLight:   '#2A3A5A',   // Borde claro / separadores
-  borderGlow:    '#00F0FF55', // Borde con glow cyan
-  borderNeon:    '#00F0FF',   // Borde neón fuerte
+  border:        '#1E2A3A',   // Borde estándar (= --border web)
+  borderLight:   '#2A3A4E',   // Borde claro (= --border-light web)
+  borderGlow:    '#00E5FF40', // Borde con glow cyan
+  borderNeon:    '#00E5FF',   // Borde neón fuerte
 
-  // Primario – Cyan Neón (cyberpunk classic)
-  primary:       '#00F0FF',   // Cyan neón eléctrico
-  primaryDark:   '#00B8D4',   // Hover del primario
-  primaryDim:    '#00F0FF1A', // Background translúcido
-  primaryGlow:   '#00F0FF80', // Para glows medios
+  // Primario – Cyan (acento de marca, = --primary web)
+  primary:       '#00E5FF',
+  primaryDark:   '#00B8D4',
+  primaryDim:    '#00E5FF1A', // Background translúcido
+  primaryGlow:   '#00E5FF80', // Para glows
 
-  // Secundario – Verde neón (matrix)
-  secondary:     '#39FF14',   // Verde neón cyberpunk
-  secondaryDim:  '#39FF1420', // Fondo translúcido verde
-  secondaryGlow: '#39FF1480',
+  // Secundario – Verde (= --secondary/--success web)
+  secondary:     '#4ADE80',
+  secondaryDim:  '#4ADE8020',
+  secondaryGlow: '#4ADE8080',
 
-  // Magenta – Acento cyberpunk
-  magenta:       '#FF2EC4',   // Magenta neón
-  magentaDim:    '#FF2EC420', // Fondo translúcido magenta
-  magentaGlow:   '#FF2EC480',
+  // Magenta / Púrpura – acentos extra del HUD (la web usa violeta #a78bfa en marca)
+  magenta:       '#A78BFA',
+  magentaDim:    '#A78BFA20',
+  magentaGlow:   '#A78BFA80',
+  purple:        '#A78BFA',
+  purpleDim:     '#A78BFA20',
+  purpleGlow:    '#A78BFA80',
 
-  // Púrpura – HUD secundario
-  purple:        '#B829FF',   // Púrpura neón
-  purpleDim:     '#B829FF20',
-  purpleGlow:    '#B829FF80',
+  // Acento – Rojo (= --accent/--danger web)
+  accent:        '#FF3B3B',
+  accentDim:     '#FF3B3B20',
 
-  // Acento – Rojo Quest
-  accent:        '#FF3B5C',   // Urgente / danger / quest crítica
-  accentDim:     '#FF3B5C20', // Fondo translúcido rojo
+  // Gold – Recompensas / XP (= --gold web)
+  gold:          '#FFD700',
+  goldDim:       '#FFD70020',
 
-  // Gold – Recompensas / XP
-  gold:          '#FFD53D',   // XP, monedas, logros
-  goldDim:       '#FFD53D20', // Fondo gold translúcido
+  // Texto (= web)
+  textPrimary:   '#E8ECF4',
+  textSecondary: '#7A8599',
+  textMuted:     '#3E4A5C',
+  textInverse:   '#0B0E14',
+  textNeon:      '#00E5FF',
 
-  // Texto
-  textPrimary:   '#EAF4FF',   // Texto principal brillante
-  textSecondary: '#7B8AAA',   // Texto secundario
-  textMuted:     '#3A4A6A',   // Texto muy tenue
-  textInverse:   '#05070D',   // Texto sobre fondo claro
-  textNeon:      '#00F0FF',   // Texto neón para hilights
+  // Estados
+  success:       '#4ADE80',
+  danger:        '#FF3B3B',
+  warning:       '#FBBF24',
+  info:          '#60A5FA',
 
-  // Estados y prioridades
-  success:       '#39FF14',   // Completado (verde neón)
-  danger:        '#FF3B5C',   // Error / vencido
-  warning:       '#FBBF24',   // Advertencia / media
-  info:          '#60A5FA',   // Informativo
-
-  // Prioridades de tarea (quest difficulty) – neones puros
-  priorityLow:    '#00F0FF',  // Cyan – fácil
+  // Prioridades (= web)
+  priorityLow:    '#60A5FA',  // Azul – fácil
   priorityMedium: '#FBBF24',  // Ámbar – media
-  priorityHigh:   '#FF2EC4',  // Magenta – difícil
-  priorityUrgent: '#FF3B5C',  // Rojo neón – crítica
+  priorityHigh:   '#FB923C',  // Naranja – difícil
+  priorityUrgent: '#FF3B3B',  // Rojo – crítica
 
   // Overlay / modals
   overlay:       'rgba(0, 0, 0, 0.78)',
-  scrim:         'rgba(5, 7, 13, 0.92)',
-  grid:          '#0E1A2D',   // Color del grid de circuito de fondo
+  scrim:         'rgba(11, 14, 20, 0.92)',
+  grid:          '#0E1A2D',
 } as const;
 
 // ─── Tipografía ───────────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ export const RADIUS = {
 export const SHADOWS = {
   /** Glow cyan para botones primarios y elementos activos */
   glowCyan: {
-    shadowColor:   '#00F0FF',
+    shadowColor:   '#00E5FF',
     shadowOpacity: 0.65,
     shadowRadius:  18,
     shadowOffset:  { width: 0, height: 0 },
@@ -122,7 +122,7 @@ export const SHADOWS = {
   },
   /** Glow cyan suave */
   glowCyanSoft: {
-    shadowColor:   '#00F0FF',
+    shadowColor:   '#00E5FF',
     shadowOpacity: 0.30,
     shadowRadius:  10,
     shadowOffset:  { width: 0, height: 0 },
@@ -130,7 +130,7 @@ export const SHADOWS = {
   },
   /** Glow verde neón para éxitos */
   glowGreen: {
-    shadowColor:   '#39FF14',
+    shadowColor:   '#4ADE80',
     shadowOpacity: 0.55,
     shadowRadius:  16,
     shadowOffset:  { width: 0, height: 0 },
@@ -138,7 +138,7 @@ export const SHADOWS = {
   },
   /** Glow rojo neón para urgentes */
   glowRed: {
-    shadowColor:   '#FF3B5C',
+    shadowColor:   '#FF3B3B',
     shadowOpacity: 0.55,
     shadowRadius:  16,
     shadowOffset:  { width: 0, height: 0 },
@@ -146,7 +146,7 @@ export const SHADOWS = {
   },
   /** Glow magenta cyberpunk */
   glowMagenta: {
-    shadowColor:   '#FF2EC4',
+    shadowColor:   '#A78BFA',
     shadowOpacity: 0.60,
     shadowRadius:  18,
     shadowOffset:  { width: 0, height: 0 },
@@ -154,7 +154,7 @@ export const SHADOWS = {
   },
   /** Glow púrpura HUD */
   glowPurple: {
-    shadowColor:   '#B829FF',
+    shadowColor:   '#A78BFA',
     shadowOpacity: 0.55,
     shadowRadius:  16,
     shadowOffset:  { width: 0, height: 0 },
@@ -162,7 +162,7 @@ export const SHADOWS = {
   },
   /** Glow dorado para recompensas */
   glowGold: {
-    shadowColor:   '#FFD53D',
+    shadowColor:   '#FFD700',
     shadowOpacity: 0.50,
     shadowRadius:  16,
     shadowOffset:  { width: 0, height: 0 },
@@ -170,7 +170,7 @@ export const SHADOWS = {
   },
   /** Sombra sutil para cards estándar */
   card: {
-    shadowColor:   '#00F0FF',
+    shadowColor:   '#00E5FF',
     shadowOpacity: 0.10,
     shadowRadius:  10,
     shadowOffset:  { width: 0, height: 4 },

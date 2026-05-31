@@ -1,8 +1,10 @@
-import { Link, useLocalSearchParams } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTaskStore } from '@/presentation/store/taskStore';
+import { CreateTaskForm } from '@/presentation/components/CreateTaskForm';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 
 const PRIORITY_CONFIG: Record<string, { color: string; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = {
@@ -14,13 +16,17 @@ const PRIORITY_CONFIG: Record<string, { color: string; label: string; icon: Reac
 
 export default function TaskDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const router = useRouter();
   const taskId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const task = useTaskStore((state) =>
     taskId ? state.tasks.find((item) => item.id === taskId) : undefined
   );
   const getSubtasks = useTaskStore((state) => state.getSubtasks);
-  const addTask = useTaskStore((state) => state.addTask);
+  const toggleComplete = useTaskStore((state) => state.toggleComplete);
+  const deleteTask = useTaskStore((state) => state.deleteTask);
+
+  const [showSubtaskForm, setShowSubtaskForm] = useState(false);
 
   if (!taskId) {
     return (
@@ -45,18 +51,22 @@ export default function TaskDetailScreen() {
   const isCompleted = task.status === 'completed';
   const xp = (task.weight || 3) * 10;
 
-  const handleAddSubtask = async () => {
-    await addTask({
-      title: `Sub-misión de ${task.title}`,
-      status: 'pending',
-      priority: 'medium',
-      task_type: 'single',
-      weight: 3,
-      hide_from_calendar: false,
-      due_date: undefined,
-      parent_id: taskId,
-      is_synced: false,
-    });
+  const handleDelete = () => {
+    Alert.alert(
+      'Eliminar misión',
+      '¿Seguro que deseas eliminar esta misión y sus sub-misiones?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteTask(taskId);
+            router.back();
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -96,10 +106,32 @@ export default function TaskDetailScreen() {
             </Text>
           </View>
         </View>
+        {task.description ? <Text style={styles.description}>{task.description}</Text> : null}
+      </View>
+
+      {/* Acciones principales */}
+      <View style={styles.actionRow}>
+        <Pressable
+          onPress={() => toggleComplete(taskId)}
+          style={[styles.actionBtn, isCompleted ? styles.reopenBtn : styles.completeBtn]}
+        >
+          <Ionicons
+            name={isCompleted ? 'refresh-outline' : 'checkmark-done'}
+            size={18}
+            color={isCompleted ? COLORS.warning : COLORS.textInverse}
+          />
+          <Text style={[styles.actionText, { color: isCompleted ? COLORS.warning : COLORS.textInverse }]}>
+            {isCompleted ? 'Reabrir' : 'Completar'}
+          </Text>
+        </Pressable>
+        <Pressable onPress={handleDelete} style={[styles.actionBtn, styles.deleteBtn]}>
+          <Ionicons name="trash-outline" size={18} color={COLORS.accent} />
+          <Text style={[styles.actionText, { color: COLORS.accent }]}>Eliminar</Text>
+        </Pressable>
       </View>
 
       {/* Add subtask */}
-      <Pressable onPress={handleAddSubtask} style={styles.addButton}>
+      <Pressable onPress={() => setShowSubtaskForm(true)} style={styles.addButton}>
         <Ionicons name="add-circle-outline" size={18} color={COLORS.textInverse} />
         <Text style={styles.addButtonText}>AGREGAR SUB-MISIÓN</Text>
       </Pressable>
@@ -119,30 +151,40 @@ export default function TaskDetailScreen() {
         subtasks.map((subtask) => {
           const subCompleted = subtask.status === 'completed';
           return (
-            <Link
+            <View
               key={subtask.id}
-              href={{ pathname: '/task/[id]', params: { id: subtask.id } }}
-              asChild
+              style={[styles.subtaskCard, subCompleted && styles.subtaskCardCompleted]}
             >
-              <Pressable style={[styles.subtaskCard, subCompleted && styles.subtaskCardCompleted]}>
-                <View style={[styles.subtaskDot, { borderColor: subCompleted ? COLORS.success : COLORS.textMuted }]}>
-                  {subCompleted && <Ionicons name="checkmark" size={10} color={COLORS.success} />}
-                </View>
-                <View style={styles.subtaskInfo}>
-                  <Text style={[styles.subtaskTitle, subCompleted && styles.subtaskTitleCompleted]}>
-                    {subtask.title}
-                  </Text>
-                  <Text style={styles.subtaskMeta}>
-                    {subCompleted ? '✅ Completada' : `⏳ ${subtask.status}`}
-                    {' · ⚡ '}{((subtask.weight || 3) * 10)} XP
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+              <Pressable
+                onPress={() => toggleComplete(subtask.id)}
+                hitSlop={8}
+                style={[styles.subtaskDot, { borderColor: subCompleted ? COLORS.success : COLORS.textMuted }]}
+              >
+                {subCompleted && <Ionicons name="checkmark" size={10} color={COLORS.success} />}
               </Pressable>
-            </Link>
+              <Pressable
+                style={styles.subtaskInfo}
+                onPress={() => router.push({ pathname: '/task/[id]', params: { id: subtask.id } })}
+              >
+                <Text style={[styles.subtaskTitle, subCompleted && styles.subtaskTitleCompleted]}>
+                  {subtask.title}
+                </Text>
+                <Text style={styles.subtaskMeta}>
+                  {subCompleted ? '✅ Completada' : `⏳ ${subtask.status}`}
+                  {' · ⚡ '}{((subtask.weight || 3) * 10)} XP
+                </Text>
+              </Pressable>
+              <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+            </View>
           );
         })
       )}
+
+      <CreateTaskForm
+        visible={showSubtaskForm}
+        onClose={() => setShowSubtaskForm(false)}
+        parentId={taskId}
+      />
     </ScrollView>
   );
 }
@@ -207,6 +249,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
+    gap: SPACING.md,
   },
   infoRow: {
     flexDirection: 'row',
@@ -225,6 +268,46 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sm,
     color: COLORS.textSecondary,
     fontWeight: '600',
+  },
+  description: {
+    fontSize: TYPOGRAPHY.md,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+  },
+
+  // Acciones
+  actionRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  actionBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: RADIUS.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    borderWidth: 1,
+  },
+  completeBtn: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+    ...SHADOWS.glowCyan,
+  },
+  reopenBtn: {
+    backgroundColor: `${COLORS.warning}18`,
+    borderColor: `${COLORS.warning}60`,
+  },
+  deleteBtn: {
+    backgroundColor: COLORS.accentDim,
+    borderColor: `${COLORS.accent}60`,
+  },
+  actionText: {
+    fontWeight: '800',
+    fontSize: TYPOGRAPHY.sm,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 
   // Section
@@ -271,9 +354,9 @@ const styles = StyleSheet.create({
     borderColor: `${COLORS.success}30`,
   },
   subtaskDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

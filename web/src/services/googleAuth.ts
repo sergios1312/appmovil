@@ -1,23 +1,21 @@
 /**
- * @file googleAuth.ts — Google OAuth for Web
- * Uses the standard OAuth 2.0 implicit flow via popup window.
+ * @file googleAuth.ts — Google OAuth para Web (implicit flow vía popup + postMessage).
+ *
+ * El popup redirige a /auth/callback (AuthCallback), que envía el access_token a
+ * esta ventana mediante window.postMessage y se cierra. Antes se leía
+ * popup.location.href en un intervalo, lo cual es frágil por cross-origin.
  */
 
 const WEB_CLIENT_ID = '940688398410-v5slp9k27hg6fbasqtsgnoksbvjh8j59.apps.googleusercontent.com';
 
-const GOOGLE_SCOPES = [
-  'openid',
-  'profile',
-  'email',
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/calendar.events',
-  'https://www.googleapis.com/auth/tasks',
-];
+// La web solo necesita identidad (la integración con Calendar/Tasks de Google se
+// retiró al migrar a Supabase). Pedir menos scopes = menos fricción en el consent.
+const GOOGLE_SCOPES = ['openid', 'profile', 'email'];
 
 export async function signInWithGoogleWeb(): Promise<{ accessToken: string } | null> {
   return new Promise((resolve) => {
     const redirectUri = window.location.origin + '/auth/callback';
-    
+
     const authUrl =
       `https://accounts.google.com/o/oauth2/v2/auth` +
       `?client_id=${encodeURIComponent(WEB_CLIENT_ID)}` +
@@ -42,32 +40,37 @@ export async function signInWithGoogleWeb(): Promise<{ accessToken: string } | n
       return;
     }
 
-    const interval = setInterval(() => {
+    let settled = false;
+
+    const finish = (result: { accessToken: string } | null) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('message', onMessage);
+      clearInterval(interval);
       try {
-        if (popup.closed) {
-          clearInterval(interval);
-          resolve(null);
-          return;
-        }
-
-        const url = popup.location.href;
-        if (url.startsWith(redirectUri)) {
-          clearInterval(interval);
-          const fragment = url.split('#')[1] ?? '';
-          const params = new URLSearchParams(fragment);
-          const accessToken = params.get('access_token');
-          popup.close();
-
-          if (accessToken) {
-            resolve({ accessToken });
-          } else {
-            resolve(null);
-          }
-        }
+        popup.close();
       } catch {
-        // Cross-origin — popup still on Google's domain, keep waiting
+        /* noop */
       }
-    }, 200);
+      resolve(result);
+    };
+
+    // AuthCallback (dentro del popup) envía el token por postMessage.
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'google-auth-token') return;
+      const token = event.data.accessToken as string | null;
+      finish(token ? { accessToken: token } : null);
+    };
+    window.addEventListener('message', onMessage);
+
+    // Respaldo: si el usuario cierra el popup, resolvemos null (con un pequeño
+    // margen por si hay un postMessage en vuelo que aún no se procesó).
+    const interval = setInterval(() => {
+      if (popup.closed) {
+        setTimeout(() => finish(null), 400);
+      }
+    }, 500);
   });
 }
 

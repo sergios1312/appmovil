@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CreateTaskDTO, TaskPriority, TaskType } from '@/core/entities/Task';
 import { useTaskStore } from '@/store/taskStore';
+import { dateTimeLocalToISO } from '@/utils/dateHelpers';
 
 interface CreateTaskFormProps {
   parentId?: string | null;
@@ -55,10 +56,15 @@ export function CreateTaskForm({ parentId = null, onClose }: CreateTaskFormProps
       parent_id: parentId,
       task_type: parentId ? 'single' : taskType,
       weight,
-      repeat_days: taskType === 'routine' ? repeatDays : undefined,
+      // Rutinas y grupos de hábitos pueden recurrir por días de la semana.
+      repeat_days:
+        !parentId && (taskType === 'routine' || taskType === 'habit_group') && repeatDays.length > 0
+          ? repeatDays
+          : undefined,
       hide_from_calendar: hideFromCalendar,
       is_synced: false,
-      due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
+      // Hora local sin Z: preserva el día elegido por el usuario (ver dateHelpers).
+      due_date: dueDate ? dateTimeLocalToISO(dueDate) : undefined,
     };
 
     await store.addTask(dto);
@@ -88,8 +94,8 @@ export function CreateTaskForm({ parentId = null, onClose }: CreateTaskFormProps
         </div>
       )}
 
-      {/* Routine-specific: day picker */}
-      {taskType === 'routine' && !parentId && (
+      {/* Recurrencia: día picker para rutinas y grupos de hábitos */}
+      {(taskType === 'routine' || taskType === 'habit_group') && !parentId && (
         <div className="repeat-days-picker">
           <label className="form-label">Repetir en:</label>
           <div className="days-row">

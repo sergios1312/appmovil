@@ -112,9 +112,18 @@ function mapPayloadToTask(row: Record<string, unknown>): Task {
     hide_from_calendar: (row.hide_from_calendar as boolean) ?? false,
     tags: (row.tags as string[]) ?? [],
     is_synced: true,
+    completed_at: (row.completed_at as string) ?? undefined,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
-  } as Task;
+  };
+}
+
+/** Devuelve todos los descendientes (recursivo) de una tarea. */
+function getDescendants(tasks: Task[], parentId: string): Task[] {
+  const children = tasks.filter((t) => t.parent_id === parentId);
+  let all = [...children];
+  for (const child of children) all = [...all, ...getDescendants(tasks, child.id)];
+  return all;
 }
 
 // Referencia al canal de Realtime para poder desuscribirse
@@ -197,10 +206,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   deleteTask: async (id) => {
     try {
       const repo = getRepo();
+      // Cascada recursiva (nietos incluidos), de hojas a raíz, para no dejar huérfanos.
+      const descendants = getDescendants(get().tasks, id);
+      for (const d of [...descendants].reverse()) await repo.delete(d.id);
       await repo.delete(id);
-      set((state) => ({
-        tasks: state.tasks.filter((t) => t.id !== id && t.parent_id !== id),
-      }));
+
+      const removed = new Set<string>([id, ...descendants.map((t) => t.id)]);
+      set((state) => ({ tasks: state.tasks.filter((t) => !removed.has(t.id)) }));
 
       const notifId = get().notificationIds[id];
       if (notifId) void cancelScheduledNotification(notifId);
@@ -297,13 +309,28 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
           if (eventType === 'DELETE') {
             const deletedId = (payload.old as Record<string, unknown>).id as string;
-            set((state) => ({
-              tasks: state.tasks.filter((t) => t.id !== deletedId && t.parent_id !== deletedId),
-            }));
+            set((state) => {
+              const removed = new Set<string>([
+                deletedId,
+                ...getDescendants(state.tasks, deletedId).map((t) => t.id),
+              ]);
+              return { tasks: state.tasks.filter((t) => !removed.has(t.id)) };
+            });
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Reconectar si el canal cae, para no perder la sync con la web en silencio.
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          if (realtimeChannel) {
+            supabase.removeChannel(realtimeChannel);
+            realtimeChannel = null;
+          }
+          setTimeout(() => {
+            if (!realtimeChannel && useAuthStore.getState().user) get().subscribeToRealtime();
+          }, 3000);
+        }
+      });
   },
 
   unsubscribeFromRealtime: () => {

@@ -1,6 +1,4 @@
-import { useEffect, useMemo } from 'react';
-import { useTaskStore } from '@/store/taskStore';
-import type { Task } from '@/core/entities/Task';
+import { useTaskStore, selectTodayStats, selectWeeklyProgress, selectProjects } from '@/store/taskStore';
 import {
   IoTodayOutline,
   IoCheckmarkCircleOutline,
@@ -11,60 +9,15 @@ import {
   IoChevronForward,
 } from 'react-icons/io5';
 
-function getDescendants(tasks: Task[], parentId: string): Task[] {
-  const children = tasks.filter(t => t.parent_id === parentId);
-  let all = [...children];
-  for (const child of children) {
-    all = [...all, ...getDescendants(tasks, child.id)];
-  }
-  return all;
-}
-
 export function HomePage() {
-  const tasks = useTaskStore((s) => s.tasks);
-  const loadTasks = useTaskStore((s) => s.loadTasks);
-
-  const rootTasks = useMemo(() => tasks.filter((t) => !t.parent_id), [tasks]);
-
-  const todayStats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayTasks = tasks.filter((t) => t.due_date?.startsWith(today));
-    const total = todayTasks.length;
-    const completed = todayTasks.filter((t) => t.status === 'completed').length;
-    return { total, completed };
-  }, [tasks]);
-
-  const weeklyProgress = useMemo(() => {
-    const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const weekTasks = tasks.filter(t => {
-      const updated = new Date(t.updated_at);
-      return updated >= startOfWeek && t.status === 'completed';
-    });
-    const totalWeight = weekTasks.reduce((acc, t) => acc + (t.weight || 3), 0);
-    const totalCompleted = weekTasks.length;
-    const milestones = [10, 25, 50, 75, 100, 150];
-    const currentMilestone = milestones.find(m => totalWeight < m) ?? 150;
-    const progress = Math.min(Math.round((totalWeight / currentMilestone) * 100), 100);
-    const remaining = Math.max(currentMilestone - totalWeight, 0);
-    return { totalWeight, totalCompleted, currentMilestone, progress, remaining };
-  }, [tasks]);
-
-  const projects = useMemo(() => {
-    return tasks.filter(t => !t.parent_id && t.task_type === 'project').map(project => {
-      const allDescendants = getDescendants(tasks, project.id);
-      const total = allDescendants.length;
-      const completed = allDescendants.filter(t => t.status === 'completed').length;
-      const prog = total > 0 ? Math.round((completed / total) * 100) : 0;
-      return { ...project, totalSubtasks: total, completedSubtasks: completed, progress: prog };
-    });
-  }, [tasks]);
+  // Selectores centralizados del store (antes esta lógica estaba duplicada inline
+  // aquí y divergía del store — p.ej. "hoy" se calculaba en UTC en vez de local).
+  const todayStats = useTaskStore(selectTodayStats);
+  const weeklyProgress = useTaskStore(selectWeeklyProgress);
+  const projects = useTaskStore(selectProjects);
+  const totalTasks = useTaskStore((s) => s.tasks.filter((t) => !t.parent_id).length);
 
   const pendingToday = todayStats.total - todayStats.completed;
-
-  useEffect(() => { loadTasks(); }, []);
 
   // Determine incentive message
   const getIncentiveMessage = () => {
@@ -107,7 +60,7 @@ export function HomePage() {
             <div className="stat-icon" style={{ background: 'var(--primary)' }}>
               <IoListOutline size={20} color="var(--bg)" />
             </div>
-            <div className="number">{rootTasks.length}</div>
+            <div className="number">{totalTasks}</div>
             <div className="label">Total de tareas</div>
           </div>
         </div>

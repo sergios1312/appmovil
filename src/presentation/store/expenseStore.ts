@@ -1,12 +1,12 @@
 /**
- * @file expenseStore.ts — Web expense store with Supabase sync + Realtime
- *
- * MIGRACIÓN: localStorage → Supabase
+ * @file expenseStore.ts — Store de gastos con Supabase + Realtime (paridad con la web).
+ * MIGRACIÓN: AsyncStorage local → Supabase (tabla expenses), sincronizado con la web.
  */
 
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import { useAuthStore } from '@/store/authStore';
+import uuid from 'react-native-uuid';
+import { supabase } from '@/infrastructure/database/supabase';
+import { useAuthStore } from '@/presentation/store/authStore';
 
 export interface Expense {
   id: string;
@@ -20,14 +20,8 @@ export interface Expense {
 }
 
 export type ExpenseCategory =
-  | 'alimentacion'
-  | 'transporte'
-  | 'entretenimiento'
-  | 'salud'
-  | 'educacion'
-  | 'servicios'
-  | 'compras'
-  | 'otros';
+  | 'alimentacion' | 'transporte' | 'entretenimiento' | 'salud'
+  | 'educacion' | 'servicios' | 'compras' | 'otros';
 
 export const EXPENSE_CATEGORIES: { key: ExpenseCategory; label: string; emoji: string }[] = [
   { key: 'alimentacion', label: 'Alimentación', emoji: '🍔' },
@@ -41,7 +35,7 @@ export const EXPENSE_CATEGORIES: { key: ExpenseCategory; label: string; emoji: s
 ];
 
 function generateId(): string {
-  return crypto.randomUUID();
+  return String(uuid.v4());
 }
 
 function getUserId(): string {
@@ -58,7 +52,6 @@ interface ExpenseStore {
   addExpense: (expense: Omit<Expense, 'id' | 'created_at' | 'user_id'>) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
 
-  // Realtime
   subscribeToRealtime: () => void;
   unsubscribeFromRealtime: () => void;
 }
@@ -78,7 +71,6 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
         .select('*')
         .eq('user_id', userId)
         .order('date', { ascending: false });
-
       if (error) throw error;
       set({ expenses: data ?? [], isLoading: false });
     } catch (err) {
@@ -100,16 +92,12 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
         notes: data.notes || null,
         created_at: new Date().toISOString(),
       };
-
       const { error } = await supabase.from('expenses').insert(newExpense);
       if (error) throw error;
-
-      set((state) => ({
-        expenses: [newExpense as Expense, ...state.expenses],
-      }));
+      set((state) => ({ expenses: [newExpense as Expense, ...state.expenses] }));
     } catch (err) {
       console.error('[ExpenseStore] addExpense:', err);
-      throw err; // que el caller sepa que falló y no limpie el formulario
+      throw err;
     }
   },
 
@@ -121,12 +109,8 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
         .delete()
         .eq('id', id)
         .eq('user_id', userId);
-
       if (error) throw error;
-
-      set((state) => ({
-        expenses: state.expenses.filter(e => e.id !== id),
-      }));
+      set((state) => ({ expenses: state.expenses.filter((e) => e.id !== id) }));
     } catch (err) {
       console.error('[ExpenseStore] deleteExpense:', err);
     }
@@ -137,33 +121,26 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     if (!user || expenseChannel) return;
 
     expenseChannel = supabase
-      .channel('expenses-realtime')
+      .channel('expenses-realtime-mobile')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'expenses',
-          filter: `user_id=eq.${user.id}`,
-        },
+        { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${user.id}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newExp = payload.new as Expense;
-            set((state) => {
-              if (state.expenses.some(e => e.id === newExp.id)) return state;
-              return { expenses: [newExp, ...state.expenses] };
-            });
+            set((state) =>
+              state.expenses.some((e) => e.id === newExp.id)
+                ? state
+                : { expenses: [newExp, ...state.expenses] }
+            );
           }
           if (payload.eventType === 'DELETE') {
             const deletedId = (payload.old as Record<string, unknown>).id as string;
-            set((state) => ({
-              expenses: state.expenses.filter(e => e.id !== deletedId),
-            }));
+            set((state) => ({ expenses: state.expenses.filter((e) => e.id !== deletedId) }));
           }
         }
       )
       .subscribe((status) => {
-        // Reconectar si el canal cae, para no perder la sincronización en silencio.
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           if (expenseChannel) {
             supabase.removeChannel(expenseChannel);
@@ -187,13 +164,12 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
 export const selectExpenseStats = (state: ExpenseStore) => {
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const monthExpenses = state.expenses.filter(e => e.date.startsWith(thisMonth));
+  const monthExpenses = state.expenses.filter((e) => e.date.startsWith(thisMonth));
   const totalMonth = monthExpenses.reduce((acc, e) => acc + e.amount, 0);
 
   const byCategory: Record<string, number> = {};
   for (const e of monthExpenses) {
     byCategory[e.category] = (byCategory[e.category] || 0) + e.amount;
   }
-
   return { totalMonth, byCategory, monthExpenses };
 };

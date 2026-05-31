@@ -1,7 +1,6 @@
 /**
  * @file SupabaseTaskRepository.ts
  * @description Implementación del repositorio de tareas para Web usando Supabase.
- * Reemplaza WebTaskRepository (localStorage) con Supabase (PostgreSQL).
  * Implementa la misma interfaz ITaskRepository.
  */
 
@@ -10,7 +9,7 @@ import type { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
 import { supabase } from '@/lib/supabase';
 
 function generateId(): string {
-  return `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  return crypto.randomUUID();
 }
 
 /**
@@ -32,13 +31,18 @@ function mapRowToTask(row: Record<string, unknown>): Task {
     hide_from_calendar: (row.hide_from_calendar as boolean) ?? false,
     tags: (row.tags as string[]) ?? [],
     is_synced: true,
+    completed_at: (row.completed_at as string) ?? undefined,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
-  } as Task;
+  };
 }
 
 export class SupabaseTaskRepository implements ITaskRepository {
-  constructor(private readonly userId: string) {}
+  private readonly userId: string;
+
+  constructor(userId: string) {
+    this.userId = userId;
+  }
 
   async getAll(includeCompleted = false): Promise<Task[]> {
     let query = supabase
@@ -53,23 +57,6 @@ export class SupabaseTaskRepository implements ITaskRepository {
 
     const { data, error } = await query;
     if (error) throw new Error(`[SupabaseTaskRepo] getAll: ${error.message}`);
-    return (data ?? []).map(mapRowToTask);
-  }
-
-  async getToday(): Promise<Task[]> {
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', this.userId)
-      .gte('due_date', startOfDay)
-      .lt('due_date', endOfDay)
-      .order('created_at', { ascending: false });
-
-    if (error) throw new Error(`[SupabaseTaskRepo] getToday: ${error.message}`);
     return (data ?? []).map(mapRowToTask);
   }
 
@@ -115,6 +102,7 @@ export class SupabaseTaskRepository implements ITaskRepository {
       repeat_days: dto.repeat_days ?? null,
       hide_from_calendar: dto.hide_from_calendar ?? false,
       tags: dto.tags ?? [],
+      completed_at: dto.status === 'completed' ? now : null,
       created_at: now,
       updated_at: now,
     };
@@ -134,7 +122,12 @@ export class SupabaseTaskRepository implements ITaskRepository {
 
     if (dto.title !== undefined) updates.title = dto.title;
     if (dto.description !== undefined) updates.description = dto.description;
-    if (dto.status !== undefined) updates.status = dto.status;
+    if (dto.status !== undefined) {
+      updates.status = dto.status;
+      // completed_at se deriva del status: es la fuente de verdad del progreso
+      // semanal (updated_at cambia con cualquier edición y no sirve para eso).
+      updates.completed_at = dto.status === 'completed' ? new Date().toISOString() : null;
+    }
     if (dto.priority !== undefined) updates.priority = dto.priority;
     if (dto.task_type !== undefined) updates.task_type = dto.task_type;
     if (dto.weight !== undefined) updates.weight = dto.weight;

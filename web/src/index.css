@@ -603,3 +603,64 @@ body {
   .expense-categories-grid { grid-template-columns: 1fr 1fr; }
   .type-filters-row { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
 }
+
+/* ─── Gym / Peso corporal ─── */
+.weight-latest {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px;
+}
+.weight-latest-icon {
+  width: 48px; height: 48px; border-radius: var(--radius-md);
+  background: var(--primary-dim); color: var(--primary);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.weight-latest-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.weight-latest-label {
+  font-size: 11px; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+}
+.weight-latest-value { font-size: 28px; font-weight: 700; color: var(--text-primary); }
+.weight-latest-value small { font-size: 14px; color: var(--text-secondary); font-weight: 600; }
+.weight-latest-value.muted { font-size: 16px; color: var(--text-muted); font-weight: 600; }
+.weight-latest-date { font-size: 12px; color: var(--text-muted); }
+
+.weight-list { display: flex; flex-direction: column; gap: 8px; }
+.weight-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 12px 14px;
+  cursor: pointer; transition: border-color 0.2s;
+}
+.weight-item:hover { border-color: var(--border-light); }
+.weight-item-main { display: flex; flex-direction: column; gap: 2px; }
+.weight-item-value { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.weight-item-value small {
+  font-size: 12px; color: var(--text-secondary); font-weight: 600; margin-left: 3px;
+}
+.weight-item-date { font-size: 12px; color: var(--text-muted); }
+.weight-item-actions { display: flex; gap: 4px; }
+.weight-icon-btn {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.weight-icon-btn:hover { background: var(--surface-high); color: var(--text-primary); }
+.weight-icon-btn.danger:hover { background: #FF3B3B20; color: var(--danger); }
+
+.weight-modal { max-width: 420px; }
+.weight-form { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+.weight-field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+.weight-form input {
+  background: var(--surface-high); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+  color: var(--text-primary); font-size: 16px; font-family: inherit;
+  outline: none; transition: border-color 0.2s; width: 100%;
+  color-scheme: dark;
+}
+.weight-form input:focus { border-color: var(--primary); }
+.weight-form input.weight-input {
+  text-align: center; font-size: 32px; font-weight: 700; letter-spacing: 1px;
+}

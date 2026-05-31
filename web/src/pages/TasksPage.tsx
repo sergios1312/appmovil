@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useTaskStore, type TaskFilter, type TaskTypeFilter } from '@/store/taskStore';
+import { useState, useMemo } from 'react';
+import { useTaskStore, selectFilteredTasks, type TaskFilter, type TaskTypeFilter } from '@/store/taskStore';
 import { TaskItem } from '@/components/TaskItem';
 import { TaskDetailModal } from '@/components/TaskDetailModal';
 import { CreateTaskForm } from '@/components/CreateTaskForm';
@@ -33,27 +33,11 @@ const TYPE_FILTERS: { key: TaskTypeFilter; label: string; Icon: typeof IoAppsOut
 export function TasksPage() {
   const store = useTaskStore();
 
-  const filteredTasks = useMemo(() => {
-    let rootTasks = store.tasks.filter((t) => !t.parent_id);
-    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
-
-    // Apply type filter
-    if (store.activeTypeFilter !== 'all') {
-      rootTasks = rootTasks.filter(t => t.task_type === store.activeTypeFilter);
-    }
-
-    switch (store.activeFilter) {
-      case 'today': return rootTasks.filter((t) => t.due_date?.startsWith(today));
-      case 'pending': return rootTasks.filter((t) => t.status === 'pending' || t.status === 'in_progress');
-      case 'completed': return rootTasks.filter((t) => t.status === 'completed');
-      default: return rootTasks;
-    }
-  }, [store.tasks, store.activeFilter, store.activeTypeFilter]);
+  // Selector centralizado (misma lógica para todas las vistas, en hora local).
+  const filteredTasks = selectFilteredTasks(store);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-
-  useEffect(() => { store.loadTasks(); }, []);
 
   // Group tasks by type for display
   const groupedTasks = useMemo(() => {

@@ -25,6 +25,9 @@ export interface Task {
   /** UUID generado localmente */
   id: string;
 
+  /** ID del usuario propietario (columna user_id en Supabase). Lo asigna el repositorio. */
+  user_id?: string;
+
   /** null = tarea raíz | string = ID de la tarea padre (subtarea) */
   parent_id: string | null;
 
@@ -85,6 +88,11 @@ export interface Task {
   /** Timestamp de última sincronización con Google (ISO 8601) */
   last_synced_at?: string;
 
+  /** Timestamp de completado (ISO 8601). Se setea al pasar a 'completed' y se
+   * limpia al reabrir. Base para el progreso semanal (no usar updated_at, que
+   * cambia con cualquier edición). */
+  completed_at?: string | null;
+
   /** Timestamp de creación (ISO 8601) */
   created_at: string;
 
@@ -95,7 +103,10 @@ export interface Task {
 /**
  * DTO para crear una nueva tarea (sin campos generados automáticamente)
  */
-export type CreateTaskDTO = Omit<Task, 'id' | 'created_at' | 'updated_at' | 'last_synced_at'>;
+export type CreateTaskDTO = Omit<
+  Task,
+  'id' | 'user_id' | 'completed_at' | 'created_at' | 'updated_at' | 'last_synced_at'
+>;
 
 /**
  * DTO para actualizar una tarea (todos los campos son opcionales excepto id)

@@ -7,7 +7,6 @@ import type { Task, CreateTaskDTO, UpdateTaskDTO } from '@/core/entities/Task';
 
 export interface ITaskRepository {
   getAll(includeCompleted?: boolean): Promise<Task[]>;
-  getToday(): Promise<Task[]>;
   getChildren(parentId: string): Promise<Task[]>;
   getById(id: string): Promise<Task | null>;
   create(dto: CreateTaskDTO): Promise<Task>;

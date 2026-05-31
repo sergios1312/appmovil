@@ -15,6 +15,7 @@ interface TabConfig {
 const TABS: TabConfig[] = [
   { name: 'index',    title: 'HUB',      icon: 'home',     iconOutline: 'home-outline' },
   { name: 'tasks',    title: 'QUESTS',   icon: 'compass',  iconOutline: 'compass-outline' },
+  { name: 'gym',      title: 'GYM',      icon: 'barbell',  iconOutline: 'barbell-outline' },
   { name: 'calendar', title: 'AGENDA',   icon: 'calendar', iconOutline: 'calendar-outline' },
   { name: 'expenses', title: 'CREDITS',  icon: 'wallet',   iconOutline: 'wallet-outline' },
   { name: 'settings', title: 'OPERATOR', icon: 'person',   iconOutline: 'person-outline' },

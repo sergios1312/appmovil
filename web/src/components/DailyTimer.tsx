@@ -39,7 +39,7 @@ export function DailyTimer() {
       flexDirection: 'column',
       gap: '8px',
       padding: '12px 16px',
-      background: isUrgent ? 'rgba(255, 69, 58, 0.1)' : 'var(--bg-secondary)',
+      background: isUrgent ? 'rgba(255, 69, 58, 0.1)' : 'var(--surface)',
       borderRadius: '12px',
       border: `1px solid ${isUrgent ? 'rgba(255, 69, 58, 0.3)' : 'var(--border)'}`,
       marginBottom: '16px',
@@ -52,7 +52,7 @@ export function DailyTimer() {
         bottom: 0,
         left: 0,
         height: '3px',
-        width: `${(diffMs / (24 * 60 * 60 * 1000)) * 100}%`,
+        width: `${Math.min(Math.max((diffMs / (24 * 60 * 60 * 1000)) * 100, 0), 100)}%`,
         background: isUrgent ? '#FF453A' : 'var(--primary)',
         transition: 'width 1s linear'
       }} />
@@ -62,7 +62,7 @@ export function DailyTimer() {
           <IoCalendarOutline size={16} />
           <span style={{ textTransform: 'capitalize' }}>{formattedDate}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--text)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--text-primary)' }}>
           <IoTimeOutline size={16} />
           {formattedTime}
         </div>

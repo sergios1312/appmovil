@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, SectionList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, SectionList, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTasks } from '@/presentation/hooks/useTasks';
 import TaskItem from '@/presentation/components/TaskItem';
+import { CreateTaskForm } from '@/presentation/components/CreateTaskForm';
 import { TaskFilter } from '@/presentation/store/taskStore';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS } from '@/utils/constants';
 import type { ViewMode, MaterializedTask } from '@/utils/taskFilters';
@@ -78,6 +79,7 @@ export default function TasksScreen() {
   } = useTasks();
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -341,6 +343,12 @@ export default function TasksScreen() {
           }
         />
       )}
+      {/* FAB para crear misión */}
+      <Pressable style={styles.fab} onPress={() => setShowCreate(true)}>
+        <Ionicons name="add" size={28} color={COLORS.textInverse} />
+      </Pressable>
+
+      <CreateTaskForm visible={showCreate} onClose={() => setShowCreate(false)} />
     </SafeAreaView>
   );
 }
@@ -562,5 +570,17 @@ const styles = StyleSheet.create({
     color: COLORS.info,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  fab: {
+    position: 'absolute',
+    right: SPACING.lg,
+    bottom: SPACING.xl,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.glowCyan,
   },
 });

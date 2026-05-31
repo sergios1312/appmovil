@@ -6,6 +6,8 @@ import { View } from 'react-native';
 import { initializeNotifications } from '@/infrastructure/services/notifications';
 import { useAuthStore } from '@/presentation/store/authStore';
 import { useTaskStore } from '@/presentation/store/taskStore';
+import { useExpenseStore } from '@/presentation/store/expenseStore';
+import { useWeightStore } from '@/presentation/store/weightStore';
 import { COLORS } from '@/utils/constants';
 
 export default function RootLayout() {
@@ -20,6 +22,14 @@ export default function RootLayout() {
   const subscribeToRealtime = useTaskStore((s) => s.subscribeToRealtime);
   const unsubscribeFromRealtime = useTaskStore((s) => s.unsubscribeFromRealtime);
 
+  const loadExpenses = useExpenseStore((s) => s.loadExpenses);
+  const subscribeExpenses = useExpenseStore((s) => s.subscribeToRealtime);
+  const unsubscribeExpenses = useExpenseStore((s) => s.unsubscribeFromRealtime);
+
+  const loadWeights = useWeightStore((s) => s.loadWeights);
+  const subscribeWeights = useWeightStore((s) => s.subscribeToRealtime);
+  const unsubscribeWeights = useWeightStore((s) => s.unsubscribeFromRealtime);
+
   const restoreSession = useAuthStore((state) => state.restoreSession);
 
   useEffect(() => {
@@ -33,9 +43,15 @@ export default function RootLayout() {
 
     void loadTasks();
     subscribeToRealtime();
+    void loadExpenses();
+    subscribeExpenses();
+    void loadWeights();
+    subscribeWeights();
 
     return () => {
       unsubscribeFromRealtime();
+      unsubscribeExpenses();
+      unsubscribeWeights();
     };
   }, [user?.id]);
 

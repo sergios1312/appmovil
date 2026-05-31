@@ -17,6 +17,17 @@ export function AuthCallback() {
     const params = new URLSearchParams(hash);
     const accessToken = params.get('access_token');
 
+    // Si estamos dentro del popup de OAuth, enviar el token a la ventana padre y cerrar.
+    if (window.opener && window.opener !== window) {
+      window.opener.postMessage(
+        { type: 'google-auth-token', accessToken: accessToken ?? null },
+        window.location.origin
+      );
+      window.close();
+      return;
+    }
+
+    // Fallback (sin popup): autenticar esta misma ventana.
     if (accessToken) {
       fetchGoogleUserInfo(accessToken)
         .then((profile) => {

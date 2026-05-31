@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTaskStore } from '@/store/taskStore';
-import { formatDueDate, isOverdue } from '@/utils/dateHelpers';
+import { formatDueDate, isOverdue, dayKeyOf } from '@/utils/dateHelpers';
 import {
   IoCalendarOutline,
   IoFilterOutline,
@@ -25,19 +25,26 @@ export function CalendarPage() {
       .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
   }, [tasks, showRoutines]);
 
-  // Group tasks by date
+  // Group tasks by stable day key (YYYY-MM-DD, incluye año → sin colisión entre años)
   const groupedTasks = useMemo(() => {
-    const groups: Record<string, typeof deadlineTasks> = {};
+    const byKey = new Map<string, typeof deadlineTasks>();
     for (const task of deadlineTasks) {
-      const dateKey = new Date(task.due_date!).toLocaleDateString('es', {
+      const key = dayKeyOf(task.due_date!);
+      const list = byKey.get(key) ?? [];
+      list.push(task);
+      byKey.set(key, list);
+    }
+    // deadlineTasks viene ordenado asc → las claves quedan en orden cronológico.
+    return Array.from(byKey.entries()).map(([key, tasks]) => ({
+      key,
+      label: new Date(`${key}T00:00:00`).toLocaleDateString('es', {
         weekday: 'long',
         day: 'numeric',
         month: 'long',
-      });
-      if (!groups[dateKey]) groups[dateKey] = [];
-      groups[dateKey].push(task);
-    }
-    return groups;
+        year: 'numeric',
+      }),
+      tasks,
+    }));
   }, [deadlineTasks]);
 
   return (
@@ -70,7 +77,7 @@ export function CalendarPage() {
           Próximas fechas límite
         </h3>
 
-        {Object.keys(groupedTasks).length === 0 ? (
+        {groupedTasks.length === 0 ? (
           <div className="empty-state" style={{ padding: '32px' }}>
             <IoFlagOutline size={36} color="var(--text-muted)" />
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '8px' }}>
@@ -78,9 +85,9 @@ export function CalendarPage() {
             </p>
           </div>
         ) : (
-          Object.entries(groupedTasks).map(([dateLabel, dayTasks]) => (
-            <div key={dateLabel} className="calendar-day-group">
-              <div className="calendar-day-label">{dateLabel}</div>
+          groupedTasks.map(({ key, label, tasks: dayTasks }) => (
+            <div key={key} className="calendar-day-group">
+              <div className="calendar-day-label">{label}</div>
               <div className="calendar-tasks-list">
                 {dayTasks.map((task) => (
                   <div

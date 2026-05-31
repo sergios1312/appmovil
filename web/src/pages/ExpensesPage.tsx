@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useExpenseStore, selectExpenseStats, EXPENSE_CATEGORIES, type ExpenseCategory } from '@/store/expenseStore';
+import { localDayKey } from '@/utils/dateHelpers';
 import {
   IoWalletOutline,
   IoAddCircleOutline,
@@ -18,26 +19,29 @@ export function ExpensesPage() {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('otros');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(localDayKey());
   const [notes, setNotes] = useState('');
 
-  useEffect(() => { store.loadExpenses(); }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !amount) return;
-    store.addExpense({
-      title: title.trim(),
-      amount: parseFloat(amount),
-      category,
-      date,
-      notes: notes.trim() || undefined,
-    });
-    setTitle('');
-    setAmount('');
-    setCategory('otros');
-    setNotes('');
-    setShowForm(false);
+    try {
+      await store.addExpense({
+        title: title.trim(),
+        amount: parseFloat(amount),
+        category,
+        date,
+        notes: notes.trim() || undefined,
+      });
+      // Solo limpiar/cerrar si se guardó correctamente.
+      setTitle('');
+      setAmount('');
+      setCategory('otros');
+      setNotes('');
+      setShowForm(false);
+    } catch {
+      alert('No se pudo guardar el gasto. Revisa tu conexión e inténtalo de nuevo.');
+    }
   };
 
   const topCategory = Object.entries(stats.byCategory)
