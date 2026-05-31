@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTaskStore, selectTodayStats, selectWeeklyProgress, selectProjects } from '@/store/taskStore';
 import {
   IoTodayOutline,
@@ -10,12 +11,16 @@ import {
 } from 'react-icons/io5';
 
 export function HomePage() {
-  // Selectores centralizados del store (antes esta lógica estaba duplicada inline
-  // aquí y divergía del store — p.ej. "hoy" se calculaba en UTC en vez de local).
-  const todayStats = useTaskStore(selectTodayStats);
-  const weeklyProgress = useTaskStore(selectWeeklyProgress);
-  const projects = useTaskStore(selectProjects);
-  const totalTasks = useTaskStore((s) => s.tasks.filter((t) => !t.parent_id).length);
+  // Suscribirse a la referencia ESTABLE `tasks` y derivar con useMemo.
+  // Pasar estos selectores directamente a useTaskStore() (p. ej.
+  // useTaskStore(selectTodayStats)) devuelve un objeto/array NUEVO en cada
+  // render → getSnapshot inestable → "Maximum update depth exceeded" → la app
+  // se queda en pantalla en blanco. Por eso derivamos aquí con useMemo([tasks]).
+  const tasks = useTaskStore((s) => s.tasks);
+  const todayStats = useMemo(() => selectTodayStats({ tasks }), [tasks]);
+  const weeklyProgress = useMemo(() => selectWeeklyProgress({ tasks }), [tasks]);
+  const projects = useMemo(() => selectProjects({ tasks }), [tasks]);
+  const totalTasks = useMemo(() => tasks.filter((t) => !t.parent_id).length, [tasks]);
 
   const pendingToday = todayStats.total - todayStats.completed;
 

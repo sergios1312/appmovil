@@ -184,7 +184,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   },
 }));
 
-export const selectExpenseStats = (state: ExpenseStore) => {
+export const selectExpenseStats = (state: Pick<ExpenseStore, 'expenses'>) => {
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const monthExpenses = state.expenses.filter(e => e.date.startsWith(thisMonth));

@@ -328,7 +328,7 @@ export const selectFilteredTasks = (state: TaskStore): Task[] => {
   }
 };
 
-export const selectTodayStats = (state: TaskStore) => {
+export const selectTodayStats = (state: Pick<TaskStore, 'tasks'>) => {
   const today = localDayKey(); // YYYY-MM-DD local
   const todayTasks = state.tasks.filter((t) => t.due_date?.startsWith(today));
   const total = todayTasks.length;
@@ -342,7 +342,7 @@ export const selectTodayStats = (state: TaskStore) => {
  * Progreso de gamificación semanal, basado en `completed_at` (no en updated_at,
  * que cambia con cualquier edición y contaminaba el cálculo).
  */
-export const selectWeeklyProgress = (state: TaskStore) => {
+export const selectWeeklyProgress = (state: Pick<TaskStore, 'tasks'>) => {
   const now = new Date();
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay());
@@ -367,7 +367,7 @@ export const selectWeeklyProgress = (state: TaskStore) => {
 /**
  * Gets project-type root tasks with progress info.
  */
-export const selectProjects = (state: TaskStore) => {
+export const selectProjects = (state: Pick<TaskStore, 'tasks'>) => {
   const projects = state.tasks.filter((t) => !t.parent_id && t.task_type === 'project');
 
   return projects.map((project) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useExpenseStore, selectExpenseStats, EXPENSE_CATEGORIES, type ExpenseCategory } from '@/store/expenseStore';
 import { localDayKey } from '@/utils/dateHelpers';
 import {
@@ -12,7 +12,10 @@ import {
 
 export function ExpensesPage() {
   const store = useExpenseStore();
-  const stats = useExpenseStore(selectExpenseStats);
+  // Derivar con useMemo sobre la referencia estable `expenses`. Pasar
+  // selectExpenseStats directamente a useExpenseStore() crea un objeto nuevo en
+  // cada render → bucle infinito de getSnapshot → pantalla en blanco.
+  const stats = useMemo(() => selectExpenseStats({ expenses: store.expenses }), [store.expenses]);
   const [showForm, setShowForm] = useState(false);
 
   // Form state
